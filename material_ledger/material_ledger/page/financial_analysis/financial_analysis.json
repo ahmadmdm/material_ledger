@@ -1,0 +1,26 @@
+{
+ "content": null,
+ "creation": "2025-12-29 08:54:08.497340",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-12-29 08:54:08.615662",
+ "modified_by": "Administrator",
+ "module": "Material Ledger",
+ "name": "financial-analysis",
+ "owner": "Administrator",
+ "page_name": "financial-analysis",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Administrator"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Financial Analysis"
+}

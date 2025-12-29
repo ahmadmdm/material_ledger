@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\": \"header\", \"data\": {\"text\": \"ahmadProg\", \"level\": 2}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Ledger\", \"link_to\": \"material-ledger-report\", \"doc_view\": \"\", \"color\": \"Blue\"}}]",
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"ahmadProg\", \"level\": 2}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Ledger\", \"link_to\": \"material-ledger-report\", \"doc_view\": \"\", \"color\": \"Blue\"}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Financial Analysis\", \"link_to\": \"financial-analysis\", \"doc_view\": \"\", \"color\": \"Green\"}}]",
  "creation": "2025-12-28 11:05:38.297486",
  "custom_blocks": [],
  "docstatus": 0,
@@ -19,9 +19,19 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Financial Analysis",
+   "link_count": 0,
+   "link_to": "financial-analysis",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-12-29 08:35:11.285860",
+ "modified": "2025-12-29 08:50:27.303494",
  "modified_by": "Administrator",
  "module": "Material Ledger",
  "name": "ahmadProg",
@@ -37,6 +47,13 @@
    "doc_view": "",
    "label": "Material Ledger",
    "link_to": "material-ledger-report",
+   "type": "Page"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Financial Analysis",
+   "link_to": "financial-analysis",
    "type": "Page"
   }
  ],
