@@ -1,0 +1,9 @@
+.material-ledger-wrapper {
+    padding: 20px;
+}
+.v-application {
+    font-family: "Roboto", sans-serif !important;
+}
+.v-data-table {
+    border-radius: 8px !important;
+}

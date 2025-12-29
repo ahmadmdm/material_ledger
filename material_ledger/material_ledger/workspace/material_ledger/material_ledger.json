@@ -1,0 +1,44 @@
+{
+ "charts": [],
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"Material Ledger\", \"level\": 2}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Ledger\", \"link_to\": \"material-ledger-report\", \"doc_view\": \"\", \"color\": \"Blue\"}}]",
+ "creation": "2025-12-28 11:05:38.297486",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Material Ledger",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Material Ledger",
+   "link_count": 0,
+   "link_to": "material-ledger-report",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-12-28 11:24:10.109874",
+ "modified_by": "Administrator",
+ "module": "Material Ledger",
+ "name": "Material Ledger",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "Material Ledger",
+   "link_to": "material-ledger-report",
+   "type": "Page"
+  }
+ ],
+ "title": "Material Ledger"
+}
