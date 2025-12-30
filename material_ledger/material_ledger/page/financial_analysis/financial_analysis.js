@@ -15,7 +15,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     let state = {
         loading: false,
         data: null,
-        filters: { company: "", year: new Date().getFullYear(), period: "annual", period_number: null },
+        filters: { company: "", year: new Date().getFullYear(), period: "quarterly", period_number: 'Q1' },
         activeStatement: 'dashboard'
     };
 
@@ -138,6 +138,10 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             </div>
         `;
 
+        const kpiHTML = `<div id="kpi-container" style="margin-bottom: 25px;"></div>`;
+        const chartsHTML = `<div id="charts-container" style="margin-bottom: 25px;"></div>`;
+        const comparisonHTML = `<div id="comparison-container" style="margin-bottom: 25px;"></div>`;
+
         const tabsHTML = `
             <div class="dashboard-tabs no-print" style="display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap;">
                 <div class="dashboard-tab active" data-tab="dashboard"><i class="fa fa-th-large"></i> ${t('dashboard')}</div>
@@ -164,7 +168,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             </div>
         `;
 
-        $(wrapper).find('.page-content').append(heroHTML + tabsHTML + contentHTML);
+        $(wrapper).find('.page-content').append(heroHTML + kpiHTML + chartsHTML + comparisonHTML + tabsHTML + contentHTML);
         
         $('.dashboard-tab').on('click', function() {
             const tab = $(this).data('tab');
@@ -189,7 +193,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             label: t('period'), 
             fieldtype: 'Select', 
             options: ['Annual\nQuarterly\nMonthly'],
-            default: 'Annual',
+            default: 'Quarterly',
             change: function() { 
                 state.filters.period = this.get_value().toLowerCase(); 
                 updatePeriodFilters();
@@ -233,6 +237,11 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
 
     function setupActions() {
         page.set_primary_action(t('refresh'), fetchAnalysis, 'refresh');
+        page.add_action_item('📥 PDF Export', () => exportToPDF());
+        page.add_action_item('📊 Excel Export', () => exportToExcel());
+        page.add_action_item('⭐ Compare Periods', () => showComparisonModal());
+        page.add_action_item('🌙 Toggle Dark Mode', () => toggleDarkMode());
+        page.add_action_item('⚡ Quick Shortcuts', () => showShortcuts());
     }
 
     function fetchCompanies() {
@@ -279,6 +288,8 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
                     console.log('📊 Financial Data:', r.message);
                     state.data = r.message;
                     renderDashboard();
+                    showKPIStatus();
+                    renderCharts();
                     renderIncomeStatement();
                     renderBalanceSheet();
                     renderCashFlow();
@@ -733,5 +744,503 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             </div>
         `;
         $('#ai-tab').html(html);
+    }
+
+    // ==================== EXPORT FUNCTIONS ====================
+    
+    function exportToPDF() {
+        if (!state.data) {
+            frappe.msgprint('لا توجد بيانات للتصدير');
+            return;
+        }
+        
+        // Generate PDF from HTML
+        let htmlContent = `
+            <html dir="rtl" style="direction: rtl;">
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; direction: rtl; margin: 20px; color: #333; }
+                    h1 { color: #667eea; text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+                    h2 { color: #764ba2; margin-top: 20px; border-right: 4px solid #667eea; padding-right: 10px; }
+                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+                    .info-box { background: #f0f4ff; padding: 15px; border-right: 4px solid #667eea; margin: 10px 0; border-radius: 4px; }
+                    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                    td, th { padding: 12px; border: 1px solid #e5e7eb; text-align: right; }
+                    th { background: #f3f4f6; font-weight: bold; }
+                    .summary { background: #f9fafb; padding: 10px; margin: 5px 0; }
+                    .positive { color: #10b981; font-weight: bold; }
+                    .negative { color: #dc2626; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>📊 تقرير التحليل المالي</h1>
+                </div>
+                
+                <div class="info-box">
+                    <p><strong>الشركة:</strong> ${state.filters.company}</p>
+                    <p><strong>السنة:</strong> ${state.filters.year}</p>
+                    <p><strong>الفترة:</strong> ${state.filters.period === 'quarterly' ? 'ربعي - ' + state.filters.period_number : state.filters.period === 'monthly' ? 'شهري - ' + state.filters.period_number : 'سنوي'}</p>
+                    <p><strong>تاريخ التقرير:</strong> ${new Date().toLocaleDateString('ar-SA')}</p>
+                </div>
+                
+                <h2>📈 قائمة الدخل</h2>
+                <table>
+                    <tr><th>البند</th><th>المبلغ</th></tr>
+                    <tr><td>الإيرادات</td><td class="positive">${(state.data.summary?.income || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr><td>المصروفات</td><td class="negative">${(state.data.summary?.expense || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr style="background: #f0fdf4;"><td><strong>صافي الربح</strong></td><td class="positive"><strong>${(state.data.summary?.profit || 0).toLocaleString('ar-SA')}</strong></td></tr>
+                </table>
+                
+                <h2>⚖️ الميزانية العمومية</h2>
+                <table>
+                    <tr><th>البند</th><th>المبلغ</th></tr>
+                    <tr><td>الأصول</td><td>${(state.data.summary?.assets || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr><td>الالتزامات</td><td>${(state.data.summary?.liabilities || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr style="background: #dbeafe;"><td><strong>حقوق الملكية</strong></td><td><strong>${(state.data.summary?.equity || 0).toLocaleString('ar-SA')}</strong></td></tr>
+                </table>
+                
+                <h2>💰 التدفقات النقدية</h2>
+                <table>
+                    <tr><th>النشاط</th><th>المبلغ</th></tr>
+                    <tr><td>التشغيلية</td><td>${(state.data.summary?.operating_cash_flow || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr><td>الاستثمارية</td><td>${(state.data.summary?.investing_cash_flow || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr><td>التمويلية</td><td>${(state.data.summary?.financing_cash_flow || 0).toLocaleString('ar-SA')}</td></tr>
+                    <tr style="background: #f3f4f6;"><td><strong>صافي التدفق</strong></td><td><strong>${(state.data.summary?.net_cash_flow || 0).toLocaleString('ar-SA')}</strong></td></tr>
+                </table>
+                
+                <p style="text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px;">
+                    تم إنشاء هذا التقرير بواسطة نظام التحليل المالي الاحترافي
+                </p>
+            </body>
+            </html>
+        `;
+        
+        try {
+            let printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.print();
+            frappe.show_alert({ message: '✅ تم إرسال التقرير للطباعة', indicator: 'green' });
+        } catch(e) {
+            frappe.msgprint('❌ خطأ في طباعة التقرير: ' + e.message);
+        }
+    }
+
+    function exportToExcel() {
+        if (!state.data) {
+            frappe.msgprint('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        
+        // Add header
+        csvContent += `${t('company')},${state.filters.company}\n`;
+        csvContent += `${t('year')},${state.filters.year}\n`;
+        csvContent += `${t('period')},${state.filters.period}\n\n`;
+        
+        // Add Income Statement
+        csvContent += `${t('income')}\n`;
+        csvContent += `${t('revenue')},${state.data.summary?.revenue || 0}\n`;
+        csvContent += `${t('expenses')},${state.data.summary?.total_expenses || 0}\n`;
+        csvContent += `${t('net_income')},${state.data.summary?.net_profit || 0}\n\n`;
+        
+        // Add Balance Sheet
+        csvContent += `${t('balance')}\n`;
+        csvContent += `Assets,${state.data.summary?.assets || 0}\n`;
+        csvContent += `Liabilities,${state.data.summary?.liabilities || 0}\n`;
+        csvContent += `Equity,${state.data.summary?.equity || 0}\n`;
+        
+        let encodedUri = encodeURI(csvContent);
+        let link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Financial_Analysis_${state.filters.company}_${state.filters.year}.csv`);
+        link.click();
+        
+        frappe.show_alert({ message: '✅ Excel تم التصديره بنجاح', indicator: 'green' });
+    }
+
+    // ==================== COMPARISON FUNCTION ====================
+    
+    function showComparisonModal() {
+        let d = new frappe.ui.Dialog({
+            title: 'مقارنة الفترات',
+            fields: [
+                { fieldname: 'period1', label: 'الفترة الأولى', fieldtype: 'Select', options: 'January\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember', reqd: 1 },
+                { fieldname: 'period2', label: 'الفترة الثانية', fieldtype: 'Select', options: 'January\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember', reqd: 1 }
+            ],
+            primary_action_label: 'مقارنة',
+            primary_action(values) {
+                comparePeriods(values.period1, values.period2);
+                d.hide();
+            }
+        });
+        d.show();
+    }
+
+    function comparePeriods(period1, period2) {
+        frappe.call({
+            method: 'material_ledger.material_ledger.api.compare_periods',
+            args: {
+                company: state.filters.company,
+                year: state.filters.year,
+                period1: period1,
+                period2: period2
+            },
+            callback: (r) => {
+                if (r.message) {
+                    let comparison = r.message;
+                    let html = `
+                        <div class="fade-in" style="background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 20px;">
+                            <h3 style="text-align: center; color: #667eea;">📊 مقارنة ${period1} vs ${period2}</h3>
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                                <tr style="background: #f3f4f6;">
+                                    <td style="padding: 12px; font-weight: 700;">البند</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 700;">${period1}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 700;">${period2}</td>
+                                    <td style="padding: 12px; text-align: center; font-weight: 700; color: #667eea;">التغير %</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 12px;">الإيرادات</td>
+                                    <td style="padding: 12px; text-align: right;">${frappe.format(comparison.revenue1, {fieldtype: 'Currency'})}</td>
+                                    <td style="padding: 12px; text-align: right;">${frappe.format(comparison.revenue2, {fieldtype: 'Currency'})}</td>
+                                    <td style="padding: 12px; text-align: center; color: ${comparison.revenue_change >= 0 ? '#10b981' : '#dc2626'};">${comparison.revenue_change.toFixed(2)}%</td>
+                                </tr>
+                                <tr style="background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                                    <td style="padding: 12px;">صافي الربح</td>
+                                    <td style="padding: 12px; text-align: right;">${frappe.format(comparison.profit1, {fieldtype: 'Currency'})}</td>
+                                    <td style="padding: 12px; text-align: right;">${frappe.format(comparison.profit2, {fieldtype: 'Currency'})}</td>
+                                    <td style="padding: 12px; text-align: center; color: ${comparison.profit_change >= 0 ? '#10b981' : '#dc2626'};">${comparison.profit_change.toFixed(2)}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    `;
+                    $('#comparison-container').html(html);
+                }
+            }
+        });
+    }
+
+    // ==================== DARK MODE FUNCTION ====================
+    
+    function toggleDarkMode() {
+        const isDark = document.documentElement.getAttribute('data-dark-mode') === 'true';
+        if (isDark) {
+            document.documentElement.removeAttribute('data-dark-mode');
+            localStorage.setItem('financial_analysis_dark_mode', 'false');
+            frappe.show_alert({ message: '☀️ الوضع الفاتح', indicator: 'info' });
+        } else {
+            document.documentElement.setAttribute('data-dark-mode', 'true');
+            localStorage.setItem('financial_analysis_dark_mode', 'true');
+            frappe.show_alert({ message: '🌙 الوضع الليلي', indicator: 'info' });
+        }
+        applyDarkMode();
+    }
+
+    function applyDarkMode() {
+        const isDark = localStorage.getItem('financial_analysis_dark_mode') === 'true';
+        if (isDark) {
+            let darkCSS = `
+                <style id="dark-mode-styles">
+                    [data-dark-mode="true"] { background: #1a1a1a !important; color: #ffffff !important; }
+                    [data-dark-mode="true"] .fade-in { background: #2d2d2d !important; }
+                    [data-dark-mode="true"] td, [data-dark-mode="true"] th { color: #ffffff !important; background: #252525 !important; }
+                    [data-dark-mode="true"] .dashboard-tab { background: #2d2d2d !important; color: #ffffff !important; }
+                    [data-dark-mode="true"] .dashboard-tab.active { background: #667eea !important; }
+                </style>
+            `;
+            if (!document.getElementById('dark-mode-styles')) {
+                $('head').append(darkCSS);
+            }
+        }
+    }
+
+    // ==================== SHORTCUTS FUNCTION ====================
+    
+    function showShortcuts() {
+        let html = `
+            <div style="padding: 15px; background: #f0f4ff; border-radius: 8px; border-right: 4px solid #667eea;">
+                <h4 style="margin: 0 0 15px 0; color: #667eea;">الفترات المحفوظة:</h4>
+                <div id="shortcuts-buttons"></div>
+            </div>
+        `;
+        
+        let d = new frappe.ui.Dialog({
+            title: '⚡ اختصارات سريعة',
+            size: 'small',
+            fields: [
+                { fieldname: 'info', fieldtype: 'HTML', options: html, read_only: 1 }
+            ]
+        });
+        
+        d.show();
+        
+        // Add buttons with proper event handlers
+        let buttonsHTML = `
+            <button class="btn btn-sm btn-default" style="margin: 5px;">Q1 الربع الأول</button>
+            <button class="btn btn-sm btn-default" style="margin: 5px;">Q2 الربع الثاني</button>
+            <button class="btn btn-sm btn-default" style="margin: 5px;">Q3 الربع الثالث</button>
+            <button class="btn btn-sm btn-default" style="margin: 5px;">Q4 الربع الرابع</button>
+            <button class="btn btn-sm btn-default" style="margin: 5px;">سنوي</button>
+        `;
+        
+        let container = d.$wrapper.find('#shortcuts-buttons');
+        container.html(buttonsHTML);
+        
+        let buttons = container.find('button');
+        buttons.eq(0).on('click', () => { setQuickFilter('Q1'); d.hide(); });
+        buttons.eq(1).on('click', () => { setQuickFilter('Q2'); d.hide(); });
+        buttons.eq(2).on('click', () => { setQuickFilter('Q3'); d.hide(); });
+        buttons.eq(3).on('click', () => { setQuickFilter('Q4'); d.hide(); });
+        buttons.eq(4).on('click', () => { setQuickFilter('Annual'); d.hide(); });
+    }
+
+    window.setQuickFilter = function(period) {
+        state.filters.period = period === 'Annual' ? 'annual' : 'quarterly';
+        page.fields_dict.period.set_value(period === 'Annual' ? 'Annual' : 'Quarterly');
+        if (period !== 'Annual') {
+            page.fields_dict.period_number.set_value(period);
+        }
+        fetchAnalysis();
+    };
+
+    // ==================== KPI INDICATORS FUNCTION ====================
+    
+    function showKPIStatus() {
+        const data = state.data;
+        if (!data) return;
+
+        const metrics = [
+            { label: 'نسبة الربح', value: ((data.summary?.net_profit / data.summary?.revenue) * 100 || 0), optimal: 20, metric: 'profit_margin' },
+            { label: 'معدل النمو', value: data.income_statement_analysis?.revenue_growth || 0, optimal: 15, metric: 'growth_rate' },
+            { label: 'السيولة', value: ((data.summary?.assets / data.summary?.liabilities) || 1), optimal: 2, metric: 'liquidity' },
+            { label: 'الديون', value: (data.balance_sheet_analysis?.debt_to_equity || 0), optimal: 50, metric: 'debt_ratio' }
+        ];
+
+        let kpiHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">';
+        
+        metrics.forEach(m => {
+            let status = 'green';
+            let statusText = '✅ ممتاز';
+            
+            if (m.metric === 'debt_ratio') {
+                status = m.value > 100 ? 'red' : m.value > 70 ? 'yellow' : 'green';
+                statusText = m.value > 100 ? '❌ عالي جداً' : m.value > 70 ? '⚠️ متوسط' : '✅ ممتاز';
+            } else {
+                status = m.value > m.optimal * 1.1 ? 'green' : m.value > m.optimal * 0.8 ? 'yellow' : 'red';
+                statusText = m.value > m.optimal * 1.1 ? '✅ ممتاز' : m.value > m.optimal * 0.8 ? '⚠️ متوسط' : '❌ ضعيف';
+            }
+
+            kpiHTML += `
+                <div style="padding: 15px; background: ${status === 'green' ? '#f0fdf4' : status === 'yellow' ? '#fffbeb' : '#fef2f2'}; border-radius: 10px; border-left: 4px solid ${status === 'green' ? '#10b981' : status === 'yellow' ? '#f59e0b' : '#dc2626'};">
+                    <div style="font-size: 12px; color: #6b7280; font-weight: 600;">${m.label}</div>
+                    <div style="font-size: 24px; font-weight: 900; color: ${status === 'green' ? '#10b981' : status === 'yellow' ? '#f59e0b' : '#dc2626'}; margin: 8px 0;">${m.value.toFixed(2)}%</div>
+                    <div style="font-size: 11px; color: ${status === 'green' ? '#059669' : status === 'yellow' ? '#92400e' : '#7c2d12'};">${statusText}</div>
+                </div>
+            `;
+        });
+
+        kpiHTML += '</div>';
+        $('#kpi-container').html(kpiHTML);
+    }
+
+    // ==================== CHARTS FUNCTION ====================
+    
+    function renderCharts() {
+        console.log('🎨 renderCharts called');
+        if (!state.data) {
+            console.log('❌ No data available');
+            return;
+        }
+        
+        console.log('✅ Data available:', state.data.summary);
+        
+        // Add Chart.js library
+        if (!window.Chart) {
+            console.log('📥 Loading Chart.js from CDN...');
+            let script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.onload = function() {
+                console.log('✅ Chart.js loaded successfully');
+                drawCharts();
+            };
+            script.onerror = function() {
+                console.error('❌ Failed to load Chart.js');
+                $('#charts-container').html('<p style="color: red;">خطأ في تحميل مكتبة الرسوم البيانية</p>');
+            };
+            document.head.appendChild(script);
+        } else {
+            console.log('✅ Chart.js already loaded');
+            drawCharts();
+        }
+    }
+
+    function drawCharts() {
+        console.log('📊 drawCharts called');
+        const data = state.data;
+        
+        if (!data || !data.summary) {
+            console.log('❌ No summary data');
+            $('#charts-container').html('<p style="text-align: center; color: #999;">لا توجد بيانات للرسم البياني</p>');
+            return;
+        }
+        
+        console.log('📊 Drawing charts with data:', data.summary);
+        
+        // Revenue vs Profit Chart
+        let chartContainer = `
+            <div style="margin-bottom: 30px; padding: 20px; background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08);">
+                <h4 style="margin: 0 0 20px 0; color: #667eea; font-weight: 800;">📈 الإيرادات والمصروفات والأرباح</h4>
+                <div style="position: relative; height: 350px;">
+                    <canvas id="revenue-profit-chart"></canvas>
+                </div>
+            </div>
+        `;
+        
+        let expenseChart = `
+            <div style="margin-bottom: 30px; padding: 20px; background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08);">
+                <h4 style="margin: 0 0 20px 0; color: #667eea; font-weight: 800;">💰 توزيع المصروفات والأرباح</h4>
+                <div style="position: relative; height: 350px;">
+                    <canvas id="expense-chart"></canvas>
+                </div>
+            </div>
+        `;
+        
+        $('#charts-container').html(chartContainer + expenseChart);
+        console.log('✅ Canvas elements added to DOM');
+        
+        // Draw Revenue vs Profit
+        setTimeout(() => {
+            console.log('🎨 Drawing revenue chart...');
+            try {
+                const ctx1 = document.getElementById('revenue-profit-chart');
+                console.log('Canvas element:', ctx1);
+                console.log('Chart.js available:', !!window.Chart);
+                
+                if (ctx1 && window.Chart) {
+                    console.log('Creating bar chart with data:', [
+                        data.summary?.income || 0,
+                        data.summary?.expense || 0,
+                        data.summary?.profit || 0
+                    ]);
+                    
+                    new Chart(ctx1, {
+                        type: 'bar',
+                        data: {
+                            labels: ['الإيرادات', 'المصروفات', 'صافي الربح'],
+                            datasets: [{
+                                label: 'المبلغ',
+                                data: [
+                                    data.summary?.income || 0,
+                                    data.summary?.expense || 0,
+                                    data.summary?.profit || 0
+                                ],
+                                backgroundColor: ['#667eea', '#f093fb', '#10b981'],
+                                borderRadius: 8,
+                                borderSkipped: false,
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0,0,0,0.8)',
+                                    padding: 12,
+                                    titleFont: { size: 14 },
+                                    bodyFont: { size: 12 },
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.parsed.y.toLocaleString('ar-SA');
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: { 
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('ar-SA');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ Revenue chart created successfully');
+                } else {
+                    console.log('❌ Canvas or Chart.js not available');
+                }
+            } catch(e) {
+                console.error('❌ Error drawing revenue chart:', e);
+            }
+            
+            // Draw Expense Distribution
+            console.log('🎨 Drawing expense chart...');
+            try {
+                const ctx2 = document.getElementById('expense-chart');
+                console.log('Expense canvas element:', ctx2);
+                
+                if (ctx2 && window.Chart) {
+                    const expenses = data.summary?.expense || 0;
+                    const profit = data.summary?.profit || 0;
+                    
+                    console.log('Creating doughnut chart with data:', [expenses, profit]);
+                    
+                    new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['المصروفات الإجمالية', 'صافي الربح'],
+                            datasets: [{
+                                data: [expenses, profit],
+                                backgroundColor: ['#f093fb', '#10b981'],
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 15,
+                                        font: { size: 12 }
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0,0,0,0.8)',
+                                    padding: 12,
+                                    titleFont: { size: 14 },
+                                    bodyFont: { size: 12 },
+                                    callbacks: {
+                                        label: function(context) {
+                                            return context.label + ': ' + context.parsed.toLocaleString('ar-SA');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ Expense chart created successfully');
+                } else {
+                    console.log('❌ Expense canvas or Chart.js not available');
+                }
+            } catch(e) {
+                console.error('❌ Error drawing expense chart:', e);
+            }
+        }, 100);
+    }
+
+    // Initialize Dark Mode on Load
+    applyDarkMode();
+    if (localStorage.getItem('financial_analysis_dark_mode') === 'true') {
+        document.documentElement.setAttribute('data-dark-mode', 'true');
     }
 };

@@ -746,6 +746,115 @@ def generate_ai_report(company, year, data):
 
 
 @frappe.whitelist()
+def export_analysis_to_pdf(company, year, period, period_number, data):
+    """
+    Export financial analysis to PDF
+    """
+    try:
+        from frappe.utils.pdf import get_pdf
+        import json
+        
+        if isinstance(data, str):
+            data = json.loads(data)
+        
+        # Build HTML for PDF
+        html = f"""
+        <html dir="rtl">
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; direction: rtl; margin: 20px; }}
+                h1 {{ color: #667eea; text-align: center; }}
+                h2 {{ color: #764ba2; margin-top: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+                td, th {{ padding: 10px; border: 1px solid #e5e7eb; text-align: right; }}
+                th {{ background: #f3f4f6; font-weight: bold; }}
+                .summary {{ background: #f0f4ff; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+                .insight {{ padding: 10px; margin: 8px 0; border-right: 4px solid #667eea; background: #f9fafb; }}
+            </style>
+        </head>
+        <body>
+            <h1>📊 تقرير التحليل المالي</h1>
+            <div class="summary">
+                <p><strong>الشركة:</strong> {company}</p>
+                <p><strong>السنة:</strong> {year}</p>
+                <p><strong>الفترة:</strong> {period} {period_number or ''}</p>
+            </div>
+            
+            <h2>قائمة الدخل</h2>
+            <table>
+                <tr><th>البند</th><th>المبلغ</th></tr>
+                <tr><td>الإيرادات</td><td>{data.get('summary', {}).get('revenue', 0):,.2f}</td></tr>
+                <tr><td>المصروفات</td><td>{data.get('summary', {}).get('total_expenses', 0):,.2f}</td></tr>
+                <tr><td>صافي الربح</td><td>{data.get('summary', {}).get('net_profit', 0):,.2f}</td></tr>
+            </table>
+            
+            <h2>الميزانية العمومية</h2>
+            <table>
+                <tr><th>البند</th><th>المبلغ</th></tr>
+                <tr><td>الأصول</td><td>{data.get('summary', {}).get('assets', 0):,.2f}</td></tr>
+                <tr><td>الالتزامات</td><td>{data.get('summary', {}).get('liabilities', 0):,.2f}</td></tr>
+                <tr><td>حقوق الملكية</td><td>{data.get('summary', {}).get('equity', 0):,.2f}</td></tr>
+            </table>
+            
+            <h2>تحليل AI</h2>
+            <div class="summary">
+                {data.get('ai_report', 'لا يوجد تحليل AI متاح')}
+            </div>
+        </body>
+        </html>
+        """
+        
+        pdf = get_pdf(html)
+        return {"pdf": pdf.encode('latin-1').hex() if isinstance(pdf, str) else pdf.hex()}
+        
+    except Exception as e:
+        frappe.log_error(f"PDF Export Error: {str(e)}", "Financial Analysis")
+        frappe.throw(_("Failed to export PDF"))
+
+
+@frappe.whitelist()
+def compare_periods(company, year, period1, period2):
+    """
+    Compare financial metrics between two periods
+    """
+    try:
+        # Convert month/quarter names to numbers
+        month_map = {
+            'january': 1, 'february': 2, 'march': 3, 'april': 4,
+            'may': 5, 'june': 6, 'july': 7, 'august': 8,
+            'september': 9, 'october': 10, 'november': 11, 'december': 12
+        }
+        
+        p1 = month_map.get(period1.lower(), 1)
+        p2 = month_map.get(period2.lower(), 1)
+        
+        data1 = get_financial_analysis(company, year, "monthly", p1)
+        data2 = get_financial_analysis(company, year, "monthly", p2)
+        
+        revenue1 = data1['summary']['revenue']
+        revenue2 = data2['summary']['revenue']
+        profit1 = data1['summary']['net_profit']
+        profit2 = data2['summary']['net_profit']
+        
+        revenue_change = ((revenue2 - revenue1) / revenue1 * 100) if revenue1 else 0
+        profit_change = ((profit2 - profit1) / profit1 * 100) if profit1 else 0
+        
+        return {
+            "revenue1": revenue1,
+            "revenue2": revenue2,
+            "revenue_change": revenue_change,
+            "profit1": profit1,
+            "profit2": profit2,
+            "profit_change": profit_change
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Comparison Error: {str(e)}", "Financial Analysis")
+        frappe.throw(_("Failed to compare periods"))
+
+
+@frappe.whitelist()
 def export_ledger_to_excel(company, from_date, to_date, **filters):
     """
     Export General Ledger to Excel format
