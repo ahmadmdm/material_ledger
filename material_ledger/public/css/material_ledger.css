@@ -1,0 +1,382 @@
+/* Material Ledger - Global Professional Styles */
+/* Following Frappe UI Design System */
+
+:root {
+    --ml-primary: #2490ef;
+    --ml-success: #28a745;
+    --ml-warning: #fd7e14;
+    --ml-danger: #d32f2f;
+    --ml-info: #17a2b8;
+    --ml-purple: #6f42c1;
+}
+
+/* Frappe Card Enhancements */
+.frappe-card {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: white;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.frappe-card-head {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-light-gray);
+}
+
+.frappe-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+}
+
+.frappe-card-body {
+    padding: 20px;
+}
+
+/* Enhanced Tables */
+.statement-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.statement-table thead th {
+    background-color: var(--table-header-bg);
+    padding: 12px;
+    font-weight: 600;
+    text-align: left;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.statement-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.statement-table tbody tr:hover {
+    background-color: var(--bg-light-gray);
+}
+
+.statement-table .table-active {
+    background-color: #f8f9fa !important;
+    font-weight: 600;
+}
+
+/* Professional Buttons */
+.btn-primary-custom {
+    background-color: var(--ml-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary-custom:hover {
+    background-color: #1976d2;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(36, 144, 239, 0.3);
+}
+
+/* Status Badges */
+.badge-success {
+    background-color: var(--ml-success);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-warning {
+    background-color: var(--ml-warning);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-danger {
+    background-color: var(--ml-danger);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Loading States */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--ml-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.empty-state-text {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+/* Alert Messages */
+.alert-info-custom {
+    background-color: #e3f2fd;
+    border-left: 4px solid var(--ml-info);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.alert-success-custom {
+    background-color: #e8f5e9;
+    border-left: 4px solid var(--ml-success);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.alert-warning-custom {
+    background-color: #fff3e0;
+    border-left: 4px solid var(--ml-warning);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+/* Metric Cards */
+.metric-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-color);
+    line-height: 1.2;
+}
+
+.metric-trend {
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.metric-trend.positive {
+    color: var(--ml-success);
+}
+
+.metric-trend.negative {
+    color: var(--ml-danger);
+}
+
+/* Tabs Enhancement */
+.nav-tabs .nav-link {
+    color: var(--text-muted);
+    font-weight: 500;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 20px;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--ml-primary);
+    border-bottom-color: var(--ml-primary);
+    background: none;
+}
+
+.nav-tabs .nav-link:hover {
+    border-bottom-color: var(--border-color);
+}
+
+/* Responsive Grid */
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 992px) {
+    .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Print Styles */
+@media print {
+    @page {
+        size: A4;
+        margin: 15mm;
+    }
+    
+    body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .no-print,
+    .page-head,
+    .page-form,
+    .page-actions,
+    .standard-filter-section,
+    button,
+    .btn {
+        display: none !important;
+    }
+    
+    .frappe-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    .table {
+        page-break-inside: auto;
+    }
+    
+    .table tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
+
+/* Dark Mode Support (Optional) */
+@media (prefers-color-scheme: dark) {
+    .frappe-card {
+        background: var(--bg-color);
+        border-color: var(--dark-border-color);
+    }
+    
+    .metric-card {
+        background: var(--bg-color);
+        border-color: var(--dark-border-color);
+    }
+}
+
+/* RTL Support */
+[dir="rtl"] .frappe-card-head,
+[dir="rtl"] .statement-table thead th {
+    text-align: right;
+}
+
+[dir="rtl"] .nav-tabs {
+    padding-right: 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Accessibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Focus States */
+a:focus,
+button:focus,
+input:focus,
+select:focus {
+    outline: 2px solid var(--ml-primary);
+    outline-offset: 2px;
+}
+
+/* Smooth Transitions */
+* {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}

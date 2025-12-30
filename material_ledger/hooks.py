@@ -1,9 +1,10 @@
 app_name = "material_ledger"
 app_title = "Material Ledger"
 app_publisher = "Trae"
-app_description = "Professional General Ledger"
+app_description = "Professional General Ledger & Financial Analysis System"
 app_email = "trae@example.com"
 app_license = "mit"
+app_version = "2.0.0"
 
 # Apps
 # ------------------
@@ -24,8 +25,10 @@ app_license = "mit"
 # Includes in <head>
 # ------------------
 
-# include js, css files in header of desk.html
-# app_include_css = "/assets/material_ledger/css/material_ledger.css"
+# Include CSS files in header of desk.html
+app_include_css = "/assets/material_ledger/css/material_ledger.css"
+
+# include js files in header of desk.html
 # app_include_js = "/assets/material_ledger/js/material_ledger.js"
 
 # include js, css files in header of web template

@@ -1,9 +1,177 @@
-.material-ledger-wrapper {
+/* Material Ledger - Frappe UI Professional Styles */
+
+.ledger-summary-cards {
+    margin-bottom: 20px;
+}
+
+.summary-card {
     padding: 20px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.v-application {
-    font-family: "Roboto", sans-serif !important;
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
-.v-data-table {
-    border-radius: 8px !important;
+
+.card-debit {
+    border-left: 4px solid var(--blue-500);
+}
+
+.card-credit {
+    border-left: 4px solid var(--red-500);
+}
+
+.card-balance {
+    border-left: 4px solid var(--green-500);
+}
+
+.summary-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summary-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-color);
+    font-family: var(--font-stack);
+}
+
+.ledger-table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.ledger-table {
+    margin-bottom: 0;
+    font-size: 13px;
+}
+
+.ledger-table thead th {
+    background-color: var(--table-header-bg);
+    color: var(--text-color);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    padding: 12px;
+    white-space: nowrap;
+}
+
+.ledger-table tbody td {
+    padding: 10px 12px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ledger-table tbody tr:hover {
+    background-color: var(--bg-light-gray);
+}
+
+.opening-balance-row {
+    background-color: #fffbf0 !important;
+    font-weight: 600;
+}
+
+.group-header {
+    background-color: var(--bg-light-gray) !important;
+    font-weight: 600 !important;
+}
+
+.subtotal-row {
+    background-color: #f8f9fa !important;
+    font-weight: 600 !important;
+    border-top: 2px solid var(--border-color) !important;
+}
+
+.voucher-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.voucher-link:hover {
+    text-decoration: underline;
+}
+
+/* Loading State */
+.ledger-table tbody tr td .fa-spinner {
+    font-size: 18px;
+    color: var(--primary);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .summary-value {
+        font-size: 20px;
+    }
+    
+    .ledger-table {
+        font-size: 12px;
+    }
+    
+    .ledger-table thead th,
+    .ledger-table tbody td {
+        padding: 8px;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .page-head,
+    .page-form,
+    .layout-side-section,
+    .standard-filter-section,
+    .page-actions,
+    .btn,
+    button {
+        display: none !important;
+    }
+    
+    .page-content {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .ledger-summary-cards {
+        display: flex !important;
+        page-break-inside: avoid;
+        margin-bottom: 30px;
+    }
+    
+    .summary-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .ledger-table-container {
+        border: 1px solid #000;
+    }
+    
+    .ledger-table thead th {
+        background-color: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .group-header,
+    .subtotal-row,
+    .opening-balance-row {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    /* Prevent page breaks inside rows */
+    .ledger-table tbody tr {
+        page-break-inside: avoid;
+    }
 }
