@@ -16,7 +16,9 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         loading: false,
         data: null,
         filters: { company: "", year: new Date().getFullYear(), period: "quarterly", period_number: 'Q1' },
-        activeStatement: 'dashboard'
+        activeStatement: 'dashboard',
+        tabData: {},
+        tabLoading: {}
     };
 
     const t = (key) => {
@@ -125,78 +127,121 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         $('head').append(styles);
     }
 
-    function buildProfessionalUI() {
-        const heroHTML = `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 15px 50px rgba(102, 126, 234, 0.4); color: white;">
-                <h2 style="margin: 0; font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 12px;">
-                    <i class="fa fa-line-chart"></i>
-                    <span id="hero-company-name">--</span>
-                </h2>
-                <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">
-                    <i class="fa fa-calendar"></i> ${t('year')}: <span id="hero-year">--</span>
-                </p>
-            </div>
-        `;
+        function buildProfessionalUI() {
+            const heroHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 15px 50px rgba(102, 126, 234, 0.4); color: white;">
+                    <h2 style="margin: 0; font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 12px;">
+                        <i class="fa fa-line-chart"></i>
+                        <span id="hero-company-name">--</span>
+                    </h2>
+                    <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">
+                        <i class="fa fa-calendar"></i> ${t('year')}: <span id="hero-year">--</span>
+                    </p>
+                </div>
+            `;
 
-        const kpiHTML = `<div id="kpi-container" style="margin-bottom: 25px;"></div>`;
-        const chartsHTML = `<div id="charts-container" style="margin-bottom: 25px;"></div>`;
-        const comparisonHTML = `<div id="comparison-container" style="margin-bottom: 25px;"></div>`;
+            const kpiHTML = `<div id="kpi-container" style="margin-bottom: 25px;"></div>`;
+            const chartsHTML = `<div id="charts-container" style="margin-bottom: 25px;"></div>`;
+            const comparisonHTML = `<div id="comparison-container" style="margin-bottom: 25px;"></div>`;
 
-        const tabsHTML = `
-            <div class="dashboard-tabs no-print" style="display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap;">
-                <div class="dashboard-tab active" data-tab="dashboard"><i class="fa fa-th-large"></i> ${t('dashboard')}</div>
-                <div class="dashboard-tab" data-tab="income"><i class="fa fa-money"></i> ${t('income')}</div>
-                <div class="dashboard-tab" data-tab="balance"><i class="fa fa-balance-scale"></i> ${t('balance')}</div>
-                <div class="dashboard-tab" data-tab="cash"><i class="fa fa-exchange"></i> ${t('cash')}</div>
-                <div class="dashboard-tab" data-tab="equity"><i class="fa fa-users"></i> ${t('equity_changes')}</div>
-                <div class="dashboard-tab" data-tab="dupont"><i class="fa fa-chart-pie"></i> ${t('dupont')}</div>
-                <div class="dashboard-tab" data-tab="ratios"><i class="fa fa-bar-chart"></i> ${t('ratios')}</div>
-                <div class="dashboard-tab" data-tab="ai"><i class="fa fa-magic"></i> ${t('ai_analysis')}</div>
-            </div>
-        `;
+            const tabsHTML = `
+                <div class="dashboard-tabs no-print" style="display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap;">
+                    <div class="dashboard-tab active" data-tab="dashboard"><i class="fa fa-th-large"></i> ${t('dashboard')}</div>
+                    <div class="dashboard-tab" data-tab="income"><i class="fa fa-money"></i> ${t('income')}</div>
+                    <div class="dashboard-tab" data-tab="balance"><i class="fa fa-balance-scale"></i> ${t('balance')}</div>
+                    <div class="dashboard-tab" data-tab="cash"><i class="fa fa-exchange"></i> ${t('cash')}</div>
+                    <div class="dashboard-tab" data-tab="equity"><i class="fa fa-users"></i> ${t('equity_changes')}</div>
+                    <div class="dashboard-tab" data-tab="dupont"><i class="fa fa-chart-pie"></i> ${t('dupont')}</div>
+                    <div class="dashboard-tab" data-tab="ratios"><i class="fa fa-bar-chart"></i> ${t('ratios')}</div>
+                    <div class="dashboard-tab" data-tab="forecast"><i class="fa fa-line-chart"></i> ${isRtl ? 'التوقعات' : 'Forecast'}</div>
+                    <div class="dashboard-tab" data-tab="benchmark"><i class="fa fa-trophy"></i> ${isRtl ? 'المقارنة' : 'Benchmark'}</div>
+                    <div class="dashboard-tab" data-tab="ai"><i class="fa fa-magic"></i> ${t('ai_analysis')}</div>
+                </div>
+            `;
 
-        const contentHTML = `
-            <div class="dashboard-content">
-                <div id="dashboard-tab" class="dashboard-section" style="display: block;"></div>
-                <div id="income-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="balance-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="cash-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="equity-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="dupont-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="ratios-tab" class="dashboard-section" style="display: none;"></div>
-                <div id="ai-tab" class="dashboard-section" style="display: none;"></div>
-            </div>
-        `;
+            const contentHTML = `
+                <div class="dashboard-content">
+                    <div id="dashboard-tab" class="dashboard-section" style="display: block;"></div>
+                    <div id="income-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="balance-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="cash-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="equity-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="dupont-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="ratios-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="forecast-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="benchmark-tab" class="dashboard-section" style="display: none;"></div>
+                    <div id="ai-tab" class="dashboard-section" style="display: none;"></div>
+                </div>
+            `;
 
-        $(wrapper).find('.page-content').append(heroHTML + kpiHTML + chartsHTML + comparisonHTML + tabsHTML + contentHTML);
+            $(wrapper).find('.page-content').append(heroHTML + kpiHTML + chartsHTML + comparisonHTML + tabsHTML + contentHTML);
         
-        $('.dashboard-tab').on('click', function() {
-            const tab = $(this).data('tab');
-            $('.dashboard-tab').removeClass('active');
-            $(this).addClass('active');
-            $('.dashboard-section').hide();
-            $(`#${tab}-tab`).show();
-        });
+            $('.dashboard-tab').on('click', function() {
+                const tab = $(this).data('tab');
+                switchTab(tab);
+            });
+        }
+
+    // Debounce helper to prevent too many API calls
+    let fetchTimeout = null;
+    function debouncedFetch(delay = 300) {
+        if (fetchTimeout) clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(() => {
+            if (state.filters.company && state.filters.year) {
+                fetchAnalysis();
+            }
+        }, delay);
     }
 
     function setupFilters() {
-        page.add_field({ fieldname: 'company', label: t('company'), fieldtype: 'Link', options: 'Company', reqd: 1,
-            change: function() { state.filters.company = this.get_value(); $('#hero-company-name').text(state.filters.company); }
-        });
-        page.add_field({ fieldname: 'year', label: t('year'), fieldtype: 'Int', default: state.filters.year,
-            change: function() { state.filters.year = this.get_value(); $('#hero-year').text(state.filters.year); }
+        page.add_field({ 
+            fieldname: 'company', 
+            label: t('company'), 
+            fieldtype: 'Link', 
+            options: 'Company', 
+            reqd: 1,
+            change: function() { 
+                const val = this.get_value();
+                if (val && val !== state.filters.company) {
+                    state.filters.company = val; 
+                    $('#hero-company-name').text(state.filters.company);
+                    // Clear cached data for new company
+                    state.data = null;
+                    state.tabData = {};
+                    debouncedFetch(500);
+                }
+            }
         });
         
-        // Period selector
+        page.add_field({ 
+            fieldname: 'year', 
+            label: t('year'), 
+            fieldtype: 'Int', 
+            default: state.filters.year,
+            change: function() { 
+                const val = this.get_value();
+                if (val && val !== state.filters.year) {
+                    state.filters.year = val; 
+                    $('#hero-year').text(state.filters.year);
+                    debouncedFetch(500);
+                }
+            }
+        });
+        
+        // Period selector - FIXED options format
         page.add_field({ 
             fieldname: 'period', 
             label: t('period'), 
             fieldtype: 'Select', 
-            options: ['Annual\nQuarterly\nMonthly'],
+            options: 'Annual\nQuarterly\nMonthly',
             default: 'Quarterly',
             change: function() { 
-                state.filters.period = this.get_value().toLowerCase(); 
-                updatePeriodFilters();
+                const val = this.get_value();
+                if (val) {
+                    state.filters.period = val.toLowerCase(); 
+                    updatePeriodFilters();
+                    debouncedFetch(300);
+                }
             }
         });
         
@@ -207,14 +252,45 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             fieldtype: 'Select', 
             options: '',
             change: function() { 
-                state.filters.period_number = this.get_value();
+                const label = this.get_value();
+                if (label) {
+                    const mapped = mapQuarterLabelToValue(label);
+                    state.filters.period_number = mapped;
+                    debouncedFetch(300);
+                }
             }
         });
         
         // Hide period number initially
         page.fields_dict.period_number.$wrapper.hide();
+
+        // Initialize quarter options and default selection
+        updatePeriodFilters();
     }
     
+    function mapQuarterLabelToValue(label) {
+        const map = {
+            'الربع الأول': 'Q1',
+            'الربع الثاني': 'Q2',
+            'الربع الثالث': 'Q3',
+            'الربع الرابع': 'Q4',
+            'شامل': 'ALL'
+        };
+        return map[label] !== undefined ? map[label] : label;
+    }
+
+    function getQuarterLabel(value) {
+        const map = {
+            Q1: 'الربع الأول',
+            Q2: 'الربع الثاني',
+            Q3: 'الربع الثالث',
+            Q4: 'الربع الرابع',
+            ALL: 'شامل',
+            null: 'شامل'
+        };
+        return map[value] || 'الربع الأول';
+    }
+
     function updatePeriodFilters() {
         const period = state.filters.period;
         const periodField = page.fields_dict.period_number;
@@ -226,13 +302,100 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             periodField.refresh();
         } else if (period === 'quarterly') {
             periodField.df.label = t('select_quarter');
-            periodField.df.options = 'Q1\nQ2\nQ3\nQ4';
+            const quarterLabels = ['الربع الأول', 'الربع الثاني', 'الربع الثالث', 'الربع الرابع', 'شامل'];
+            periodField.df.options = quarterLabels.join('\n');
             periodField.$wrapper.show();
             periodField.refresh();
+            const currentLabel = getQuarterLabel(state.filters.period_number) || quarterLabels[0];
+            periodField.set_value(currentLabel);
         } else {
             periodField.$wrapper.hide();
             state.filters.period_number = null;
         }
+    }
+
+    function resolvePeriodNumber() {
+        let periodNum = null;
+        if (state.filters.period === 'monthly' && state.filters.period_number) {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            periodNum = months.indexOf(state.filters.period_number) + 1;
+        } else if (state.filters.period === 'quarterly' && state.filters.period_number) {
+            periodNum = state.filters.period_number === 'ALL' ? null : parseInt(String(state.filters.period_number).replace('Q', ''));
+        }
+        return periodNum;
+    }
+
+    function switchTab(tab) {
+        state.activeStatement = tab;
+        $('.dashboard-tab').removeClass('active');
+        $('.dashboard-tab[data-tab="' + tab + '"]').addClass('active');
+        $('.dashboard-section').hide();
+        $('#' + tab + '-tab').show();
+        loadTab(tab);
+    }
+
+    function getTabLoadingMessage(tab) {
+        const copy = {
+            dashboard: isRtl ? 'جاري تحميل لوحة القيادة والملخص' : 'Loading dashboard summary',
+            income: isRtl ? 'جاري تحميل قائمة الدخل' : 'Loading income statement',
+            balance: isRtl ? 'جاري تحميل الميزانية العمومية' : 'Loading balance sheet',
+            cash: isRtl ? 'جاري تحميل التدفقات النقدية' : 'Loading cash flow statement',
+            equity: isRtl ? 'جاري تحميل تغيرات حقوق الملكية' : 'Loading equity changes',
+            dupont: isRtl ? 'جاري تحميل تحليل دوبونت' : 'Loading DuPont analysis',
+            ratios: isRtl ? 'جاري تحميل النسب المالية' : 'Loading financial ratios',
+            ai: isRtl ? 'جاري تحميل تقرير الذكاء الاصطناعي' : 'Loading AI insights'
+        };
+        return copy[tab] || (isRtl ? 'جاري تحميل البيانات' : 'Loading data');
+    }
+
+    function getTabReadyMessage(tab) {
+        const copy = {
+            dashboard: isRtl ? 'تم تحميل لوحة القيادة' : 'Dashboard is ready',
+            income: isRtl ? 'تم تحميل قائمة الدخل' : 'Income statement ready',
+            balance: isRtl ? 'تم تحميل الميزانية' : 'Balance sheet ready',
+            cash: isRtl ? 'تم تحميل التدفقات النقدية' : 'Cash flow ready',
+            equity: isRtl ? 'تم تحميل حقوق الملكية' : 'Equity changes ready',
+            dupont: isRtl ? 'تم تحميل تحليل دوبونت' : 'DuPont analysis ready',
+            ratios: isRtl ? 'تم تحميل النسب المالية' : 'Financial ratios ready',
+            ai: isRtl ? 'تم تحميل رؤى الذكاء الاصطناعي' : 'AI insights ready'
+        };
+        return copy[tab] || (isRtl ? 'تم التحميل' : 'Loaded');
+    }
+
+    function renderTabLoader(tab) {
+        const target = $('#'+ tab + '-tab');
+        target.html(
+            '<div style="padding: 50px; text-align: center; background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08);">' +
+                '<i class="fa fa-spinner fa-spin" style="font-size: 42px; color: #667eea;"></i>' +
+                '<div style="margin-top: 14px; font-weight: 700; color: #374151;">' + getTabLoadingMessage(tab) + '</div>' +
+            '</div>'
+        );
+    }
+
+    function renderTabStatus(tab, message, tone) {
+        const target = $('#'+ tab + '-tab');
+        const statusId = 'tab-status-' + tab;
+        target.find('#' + statusId).remove();
+        const colors = { success: '#10b981', error: '#dc2626', info: '#667eea' };
+        const bg = { success: '#f0fdf4', error: '#fef2f2', info: '#eef2ff' };
+        const icon = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+        const toneKey = colors[tone] ? tone : 'info';
+        target.prepend(
+            '<div id="' + statusId + '" style="margin-bottom: 12px; padding: 12px; border-radius: 10px; border: 1px solid ' + colors[toneKey] + '; background: ' + bg[toneKey] + '; display: flex; align-items: center; gap: 10px;">' +
+                '<i class="fa ' + icon[toneKey] + '" style="color: ' + colors[toneKey] + ';"></i>' +
+                '<span style="color: ' + colors[toneKey] + '; font-weight: 700;">' + message + '</span>' +
+            '</div>'
+        );
+    }
+
+    function renderTabError(tab, message) {
+        const target = $('#'+ tab + '-tab');
+        target.html(
+            '<div style="padding: 40px; text-align: center; background: #fef2f2; border-radius: 12px; color: #dc2626; font-weight: 700;">' +
+                '<i class="fa fa-times-circle" style="font-size: 32px; margin-bottom: 10px;"></i>' +
+                '<div>' + message + '</div>' +
+            '</div>'
+        );
     }
 
     function setupActions() {
@@ -245,62 +408,236 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     }
 
     function fetchCompanies() {
-        frappe.call({
-            method: 'frappe.client.get_list',
-            args: { doctype: 'Company', fields: ['name'] },
-            callback: (r) => {
-                if (r.message && r.message.length) {
-                    state.filters.company = r.message[0].name;
-                    page.fields_dict.company.set_value(state.filters.company);
-                    $('#hero-company-name').text(state.filters.company);
-                    $('#hero-year').text(state.filters.year);
-                    setTimeout(() => fetchAnalysis(), 500);
+        // Use frappe.xcall for faster async call
+        frappe.xcall('frappe.client.get_list', {
+            doctype: 'Company', 
+            fields: ['name'],
+            limit_page_length: 1,
+            order_by: 'creation desc'
+        }).then((companies) => {
+            if (companies && companies.length) {
+                state.filters.company = companies[0].name;
+                page.fields_dict.company.set_value(state.filters.company);
+                $('#hero-company-name').text(state.filters.company);
+                $('#hero-year').text(state.filters.year);
+                
+                // Set default quarter based on current date
+                const currentMonth = new Date().getMonth() + 1;
+                const currentQuarter = Math.ceil(currentMonth / 3);
+                state.filters.period_number = 'Q' + currentQuarter;
+                
+                // Fetch data immediately
+                fetchAnalysis();
+            }
+        }).catch((err) => {
+            console.error('Error fetching companies:', err);
+            frappe.show_alert({ 
+                message: isRtl ? 'خطأ في جلب الشركات' : 'Error fetching companies', 
+                indicator: 'red' 
+            });
+        });
+    }
+
+    // API call with retry logic and offline handling
+    function apiCallWithRetry(options, retries = 3, delay = 1000) {
+        return new Promise((resolve, reject) => {
+            const attempt = (attemptNum) => {
+                // Check online status
+                if (!navigator.onLine) {
+                    const offlineError = isRtl ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection';
+                    reject({ message: offlineError, offline: true });
+                    return;
                 }
+                
+                frappe.call({
+                    ...options,
+                    callback: (r) => {
+                        if (r.message) {
+                            resolve(r);
+                        } else if (attemptNum < retries) {
+                            console.warn('API call failed, retrying... Attempt ' + (attemptNum + 1) + '/' + retries);
+                            setTimeout(() => attempt(attemptNum + 1), delay * attemptNum);
+                        } else {
+                            reject({ message: isRtl ? 'فشل الاتصال بالخادم' : 'Server connection failed' });
+                        }
+                    },
+                    error: (err) => {
+                        if (attemptNum < retries) {
+                            console.warn('API error, retrying... Attempt ' + (attemptNum + 1) + '/' + retries);
+                            setTimeout(() => attempt(attemptNum + 1), delay * attemptNum);
+                        } else {
+                            reject({ message: err.message || (isRtl ? 'خطأ في الاتصال' : 'Connection error'), error: err });
+                        }
+                    }
+                });
+            };
+            attempt(1);
+        });
+    }
+
+    // Local cache for offline support
+    const localCache = {
+        key: 'financial_analysis_cache',
+        get: function(company, year, period) {
+            try {
+                const cache = JSON.parse(localStorage.getItem(this.key) || '{}');
+                const cacheKey = company + '_' + year + '_' + period;
+                const entry = cache[cacheKey];
+                if (entry && (Date.now() - entry.timestamp) < 3600000) { // 1 hour cache
+                    return entry.data;
+                }
+            } catch(e) { console.warn('Cache read error:', e); }
+            return null;
+        },
+        set: function(company, year, period, data) {
+            try {
+                const cache = JSON.parse(localStorage.getItem(this.key) || '{}');
+                const cacheKey = company + '_' + year + '_' + period;
+                cache[cacheKey] = { data: data, timestamp: Date.now() };
+                // Keep only last 10 entries
+                const keys = Object.keys(cache);
+                if (keys.length > 10) {
+                    const oldest = keys.sort((a, b) => cache[a].timestamp - cache[b].timestamp)[0];
+                    delete cache[oldest];
+                }
+                localStorage.setItem(this.key, JSON.stringify(cache));
+            } catch(e) { console.warn('Cache write error:', e); }
+        }
+    };
+
+    function fetchAnalysis() {
+        if (!state.filters.company) return;
+        
+        // Check if we have recent cached data - show immediately while fetching fresh
+        const cacheKey = state.filters.company + '_' + state.filters.year + '_' + state.filters.period;
+        const cached = localCache.get(state.filters.company, state.filters.year, state.filters.period);
+        
+        // If cached, show immediately with loading indicator
+        if (cached && navigator.onLine) {
+            state.data = cached;
+            renderAllSections();
+            // Show small loading indicator in corner
+            showRefreshingIndicator();
+        } else {
+            state.loading = true;
+            $('.dashboard-section').html('<div style="padding: 60px; text-align: center;"><i class="fa fa-spinner fa-spin" style="font-size: 48px; color: #667eea;"></i><div style="margin-top: 15px; color: #6b7280; font-weight: 600;">' + t('loading') + '</div></div>');
+        }
+
+        // Convert period_number based on period type
+        let periodNum = resolvePeriodNumber();
+
+        // Try to load from cache first if offline
+        if (!navigator.onLine) {
+            if (cached) {
+                state.loading = false;
+                state.data = cached;
+                renderAllSections();
+                frappe.show_alert({ 
+                    message: isRtl ? '📴 وضع عدم الاتصال - البيانات من الذاكرة المؤقتة' : '📴 Offline mode - showing cached data', 
+                    indicator: 'orange' 
+                });
+                return;
+            } else {
+                state.loading = false;
+                $('.dashboard-section').html(
+                    '<div style="padding: 60px; text-align: center; background: #fef2f2; border-radius: 16px;">' +
+                    '<i class="fa fa-wifi" style="font-size: 48px; color: #dc2626;"></i>' +
+                    '<div style="margin-top: 15px; color: #dc2626; font-weight: 700;">' + 
+                    (isRtl ? 'لا يوجد اتصال بالإنترنت ولا توجد بيانات مخزنة' : 'No internet connection and no cached data') + 
+                    '</div></div>'
+                );
+                return;
+            }
+        }
+
+        // Use frappe.xcall for faster async call
+        const startTime = performance.now();
+        
+        frappe.xcall('material_ledger.material_ledger.api.get_financial_analysis', {
+            company: state.filters.company, 
+            year: state.filters.year,
+            period: state.filters.period,
+            period_number: periodNum
+        }).then((data) => {
+            const loadTime = ((performance.now() - startTime) / 1000).toFixed(2);
+            state.loading = false;
+            hideRefreshingIndicator();
+            
+            if (data) {
+                console.log('📊 Financial Data loaded in ' + loadTime + 's:', data);
+                state.data = data;
+                // Cache for offline use
+                localCache.set(state.filters.company, state.filters.year, state.filters.period, data);
+                renderAllSections();
+                frappe.show_alert({ 
+                    message: '✅ ' + (isRtl ? 'تم التحليل في ' + loadTime + ' ثانية' : 'Analysis completed in ' + loadTime + 's'), 
+                    indicator: 'green' 
+                });
+            }
+        }).catch((err) => {
+            state.loading = false;
+            hideRefreshingIndicator();
+            console.error('Analysis fetch error:', err);
+            
+            // If we already showed cached data, just show error notification
+            if (cached) {
+                frappe.show_alert({ 
+                    message: isRtl ? '⚠️ فشل التحديث - عرض البيانات المخزنة' : '⚠️ Refresh failed - showing cached data', 
+                    indicator: 'orange' 
+                });
+            } else {
+                $('.dashboard-section').html(
+                    '<div style="padding: 60px; text-align: center; background: #fef2f2; border-radius: 16px;">' +
+                    '<i class="fa fa-exclamation-triangle" style="font-size: 48px; color: #dc2626;"></i>' +
+                    '<div style="margin-top: 15px; color: #dc2626; font-weight: 700;">' + (err.message || err) + '</div>' +
+                    '<button class="retry-btn" style="margin-top: 20px; padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700;">' +
+                    (isRtl ? 'إعادة المحاولة' : 'Retry') + '</button></div>'
+                );
+                $('.retry-btn').on('click', fetchAnalysis);
             }
         });
     }
 
-    function fetchAnalysis() {
-        if (!state.filters.company) return;
-        state.loading = true;
-        $('.dashboard-section').html('<div style="padding: 60px; text-align: center;"><i class="fa fa-spinner fa-spin" style="font-size: 48px; color: #667eea;"></i><div style="margin-top: 15px; color: #6b7280; font-weight: 600;">' + t('loading') + '</div></div>');
-
-        // Convert period_number based on period type
-        let periodNum = null;
-        if (state.filters.period === 'monthly' && state.filters.period_number) {
-            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-            periodNum = months.indexOf(state.filters.period_number) + 1;
-        } else if (state.filters.period === 'quarterly' && state.filters.period_number) {
-            periodNum = parseInt(state.filters.period_number.replace('Q', ''));
+    function showRefreshingIndicator() {
+        if ($('#refreshing-indicator').length === 0) {
+            $('body').append(
+                '<div id="refreshing-indicator" style="position: fixed; top: 60px; right: 20px; background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; z-index: 9999; box-shadow: 0 4px 12px rgba(102,126,234,0.4);">' +
+                '<i class="fa fa-refresh fa-spin"></i> ' + (isRtl ? 'جاري التحديث...' : 'Refreshing...') +
+                '</div>'
+            );
         }
+    }
 
-        frappe.call({
-            method: 'material_ledger.material_ledger.api.get_financial_analysis',
-            args: { 
-                company: state.filters.company, 
-                year: state.filters.year,
-                period: state.filters.period,
-                period_number: periodNum
-            },
-            callback: (r) => {
-                state.loading = false;
-                if (r.message) {
-                    console.log('📊 Financial Data:', r.message);
-                    state.data = r.message;
-                    renderDashboard();
-                    showKPIStatus();
-                    renderCharts();
-                    renderIncomeStatement();
-                    renderBalanceSheet();
-                    renderCashFlow();
-                    renderEquityChanges();
-                    renderDuPont();
-                    renderRatios();
-                    renderAIAnalysis();
-                    frappe.show_alert({ message: '✅ ' + (isRtl ? 'تم التحليل بنجاح' : 'Analysis completed'), indicator: 'green' });
-                }
-            }
-        });
+    function hideRefreshingIndicator() {
+        $('#refreshing-indicator').fadeOut(300, function() { $(this).remove(); });
+    }
+
+    function renderAllSections() {
+        // Progressive render to avoid blocking UI; show sections as soon as ready
+        const renderSteps = [
+            renderDashboard,
+            showKPIStatus,
+            renderCharts,
+            renderIncomeStatement,
+            renderBalanceSheet,
+            renderCashFlow,
+            renderEquityChanges,
+            renderDuPont,
+            renderRatios,
+            renderForecast,
+            renderBenchmark,
+            renderAIAnalysis
+        ];
+
+        const schedule = (queue) => {
+            if (!queue.length) return;
+            const fn = queue.shift();
+            try { fn(); } catch(e) { console.error('Render step failed', e); }
+            const idle = window.requestIdleCallback || function(cb){ return setTimeout(() => cb({didTimeout:false}), 0); };
+            idle(() => schedule(queue));
+        };
+
+        schedule(renderSteps);
     }
 
     function renderDashboard() {
@@ -354,7 +691,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     }
 
     function renderDuPont() {
-        if (!state.data) return;
+        if (!state.data?.ratios) return;
         
         const ratios = state.data.ratios;
         const dupont = ratios.dupont_roe || ratios.roe;
@@ -687,6 +1024,190 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         $('#equity-tab').html(html);
     }
 
+    function renderForecast() {
+        if (!state.filters.company) return;
+        
+        renderTabLoader('forecast');
+        
+        frappe.call({
+            method: 'material_ledger.material_ledger.api.get_financial_forecast',
+            args: { company: state.filters.company, years: 3 },
+            callback: (r) => {
+                if (!r.message || r.message.error) {
+                    renderTabError('forecast', r.message?.error || (isRtl ? 'لا توجد بيانات كافية للتوقعات' : 'Insufficient data for forecasting'));
+                    return;
+                }
+                
+                const data = r.message;
+                const historical = data.historical || [];
+                const forecasts = data.forecasts || [];
+                const growthRates = data.growth_rates || {};
+                
+                let html = '<div class="fade-in">';
+                
+                // Growth rates summary
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">';
+                
+                const growthColor = (rate) => rate >= 0 ? '#10b981' : '#ef4444';
+                const growthIcon = (rate) => rate >= 0 ? '📈' : '📉';
+                
+                html += '<div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); text-align: center;">' +
+                    '<div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">' + (isRtl ? 'نمو الإيرادات السنوي' : 'Revenue Growth Rate') + '</div>' +
+                    '<div style="font-size: 32px; font-weight: 900; color: ' + growthColor(growthRates.income) + ';">' + growthIcon(growthRates.income) + ' ' + growthRates.income + '%</div>' +
+                '</div>';
+                
+                html += '<div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); text-align: center;">' +
+                    '<div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">' + (isRtl ? 'نمو المصروفات السنوي' : 'Expense Growth Rate') + '</div>' +
+                    '<div style="font-size: 32px; font-weight: 900; color: ' + growthColor(-growthRates.expense) + ';">' + growthIcon(-growthRates.expense) + ' ' + growthRates.expense + '%</div>' +
+                '</div>';
+                
+                html += '<div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); text-align: center;">' +
+                    '<div style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">' + (isRtl ? 'نمو الأصول السنوي' : 'Asset Growth Rate') + '</div>' +
+                    '<div style="font-size: 32px; font-weight: 900; color: ' + growthColor(growthRates.assets) + ';">' + growthIcon(growthRates.assets) + ' ' + growthRates.assets + '%</div>' +
+                '</div>';
+                
+                html += '</div>';
+                
+                // Forecast table
+                html += '<div style="background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); overflow: hidden;">';
+                html += '<div style="padding: 20px 24px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">';
+                html += '<h3 style="margin: 0; font-size: 18px; font-weight: 800; color: white;">🔮 ' + (isRtl ? 'التوقعات المالية للسنوات القادمة' : 'Financial Forecasts') + '</h3>';
+                html += '</div>';
+                
+                html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background: #f9fafb;">' +
+                    '<th style="padding: 16px; text-align: ' + (isRtl ? 'right' : 'left') + '; font-weight: 700; color: #374151;">' + (isRtl ? 'السنة' : 'Year') + '</th>' +
+                    '<th style="padding: 16px; text-align: center; font-weight: 700; color: #374151;">' + (isRtl ? 'الإيرادات المتوقعة' : 'Projected Revenue') + '</th>' +
+                    '<th style="padding: 16px; text-align: center; font-weight: 700; color: #374151;">' + (isRtl ? 'المصروفات المتوقعة' : 'Projected Expenses') + '</th>' +
+                    '<th style="padding: 16px; text-align: center; font-weight: 700; color: #374151;">' + (isRtl ? 'الربح المتوقع' : 'Projected Profit') + '</th>' +
+                    '<th style="padding: 16px; text-align: center; font-weight: 700; color: #374151;">' + (isRtl ? 'مستوى الثقة' : 'Confidence') + '</th>' +
+                '</tr></thead><tbody>';
+                
+                forecasts.forEach((f, idx) => {
+                    const bgColor = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+                    const profitColor = f.profit.projected >= 0 ? '#10b981' : '#ef4444';
+                    
+                    html += '<tr style="background: ' + bgColor + ';">' +
+                        '<td style="padding: 16px; font-weight: 700; color: #667eea;">' + f.year + '</td>' +
+                        '<td style="padding: 16px; text-align: center;">' +
+                            '<div style="font-weight: 700;">' + frappe.format(f.income.projected, {fieldtype: 'Currency'}) + '</div>' +
+                            '<div style="font-size: 11px; color: #9ca3af;">(' + frappe.format(f.income.low, {fieldtype: 'Currency'}) + ' - ' + frappe.format(f.income.high, {fieldtype: 'Currency'}) + ')</div>' +
+                        '</td>' +
+                        '<td style="padding: 16px; text-align: center;">' +
+                            '<div style="font-weight: 700;">' + frappe.format(f.expense.projected, {fieldtype: 'Currency'}) + '</div>' +
+                            '<div style="font-size: 11px; color: #9ca3af;">(' + frappe.format(f.expense.low, {fieldtype: 'Currency'}) + ' - ' + frappe.format(f.expense.high, {fieldtype: 'Currency'}) + ')</div>' +
+                        '</td>' +
+                        '<td style="padding: 16px; text-align: center; color: ' + profitColor + '; font-weight: 900;">' +
+                            '<div>' + frappe.format(f.profit.projected, {fieldtype: 'Currency'}) + '</div>' +
+                        '</td>' +
+                        '<td style="padding: 16px; text-align: center;">' +
+                            '<span style="background: #eef2ff; color: #667eea; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px;">' + f.confidence_level + '</span>' +
+                        '</td>' +
+                    '</tr>';
+                });
+                
+                html += '</tbody></table></div></div>';
+                
+                // Methodology note
+                html += '<div style="margin-top: 20px; padding: 16px; background: #f0f9ff; border-radius: 10px; border-left: 4px solid #0ea5e9;">' +
+                    '<div style="font-weight: 700; color: #0369a1; margin-bottom: 5px;">📊 ' + (isRtl ? 'المنهجية' : 'Methodology') + '</div>' +
+                    '<div style="color: #0c4a6e; font-size: 13px;">' + (data.methodology || 'Weighted Moving Average with Decay Factor') + '</div>' +
+                '</div>';
+                
+                html += '</div>';
+                $('#forecast-tab').html(html);
+            },
+            error: (err) => {
+                renderTabError('forecast', isRtl ? 'حدث خطأ أثناء تحميل التوقعات' : 'Error loading forecast');
+            }
+        });
+    }
+
+    function renderBenchmark() {
+        if (!state.filters.company) return;
+        
+        renderTabLoader('benchmark');
+        
+        frappe.call({
+            method: 'material_ledger.material_ledger.api.get_competitor_benchmarks',
+            args: { company: state.filters.company },
+            callback: (r) => {
+                if (!r.message) {
+                    renderTabError('benchmark', isRtl ? 'لا توجد بيانات مقارنة' : 'No benchmark data available');
+                    return;
+                }
+                
+                const data = r.message;
+                const comparison = data.comparison || {};
+                const overallScore = data.overall_score || 0;
+                
+                let html = '<div class="fade-in">';
+                
+                // Overall score
+                const scoreColor = overallScore >= 75 ? '#10b981' : overallScore >= 50 ? '#f59e0b' : '#ef4444';
+                const scoreLabel = overallScore >= 75 ? (isRtl ? 'ممتاز' : 'Excellent') : 
+                                  overallScore >= 50 ? (isRtl ? 'جيد' : 'Good') : (isRtl ? 'يحتاج تحسين' : 'Needs Improvement');
+                
+                html += '<div style="text-align: center; margin-bottom: 30px;">';
+                html += '<div style="display: inline-block; background: linear-gradient(135deg, ' + scoreColor + ' 0%, ' + scoreColor + '99 100%); width: 180px; height: 180px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 40px ' + scoreColor + '40;">';
+                html += '<div style="font-size: 48px; font-weight: 900; color: white;">' + overallScore + '</div>';
+                html += '<div style="font-size: 14px; color: white; opacity: 0.9;">' + scoreLabel + '</div>';
+                html += '</div>';
+                html += '<div style="margin-top: 15px; font-size: 14px; color: #6b7280;">' + (isRtl ? 'درجة المقارنة مع الصناعة' : 'Industry Benchmark Score') + '</div>';
+                html += '</div>';
+                
+                // Comparison cards
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">';
+                
+                const ratioLabels = {
+                    'net_margin': { ar: 'هامش الربح الصافي', en: 'Net Margin' },
+                    'current_ratio': { ar: 'نسبة التداول', en: 'Current Ratio' },
+                    'debt_ratio': { ar: 'نسبة الديون', en: 'Debt Ratio' },
+                    'roe': { ar: 'العائد على حقوق الملكية', en: 'ROE' },
+                    'roa': { ar: 'العائد على الأصول', en: 'ROA' },
+                    'asset_turnover': { ar: 'معدل دوران الأصول', en: 'Asset Turnover' },
+                    'inventory_turnover': { ar: 'معدل دوران المخزون', en: 'Inventory Turnover' },
+                    'receivables_turnover': { ar: 'معدل دوران الذمم', en: 'Receivables Turnover' }
+                };
+                
+                for (const [ratio, comp] of Object.entries(comparison)) {
+                    const label = ratioLabels[ratio] || { ar: ratio, en: ratio };
+                    const perfColor = comp.performance === 'excellent' ? '#10b981' : 
+                                     comp.performance === 'good' ? '#3b82f6' :
+                                     comp.performance === 'average' ? '#f59e0b' : '#ef4444';
+                    
+                    html += '<div style="background: white; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden;">';
+                    html += '<div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">';
+                    html += '<span style="font-weight: 700; color: #374151;">' + (isRtl ? label.ar : label.en) + '</span>';
+                    html += '<span style="font-size: 20px;">' + comp.rating + '</span>';
+                    html += '</div>';
+                    
+                    html += '<div style="padding: 20px;">';
+                    html += '<div style="font-size: 28px; font-weight: 900; color: ' + perfColor + '; margin-bottom: 15px;">' + (comp.company_value || 0).toFixed(2) + '</div>';
+                    
+                    // Progress bar
+                    html += '<div style="background: #e5e7eb; height: 8px; border-radius: 4px; position: relative; margin-bottom: 10px;">';
+                    html += '<div style="position: absolute; left: 0; top: 0; height: 100%; width: ' + Math.min(comp.percentile, 100) + '%; background: ' + perfColor + '; border-radius: 4px;"></div>';
+                    html += '</div>';
+                    
+                    html += '<div style="display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af;">';
+                    html += '<span>' + (isRtl ? 'منخفض: ' : 'Low: ') + comp.industry_low + '</span>';
+                    html += '<span>' + (isRtl ? 'متوسط: ' : 'Avg: ') + comp.industry_avg + '</span>';
+                    html += '<span>' + (isRtl ? 'مرتفع: ' : 'High: ') + comp.industry_high + '</span>';
+                    html += '</div>';
+                    html += '</div></div>';
+                }
+                
+                html += '</div></div>';
+                
+                $('#benchmark-tab').html(html);
+            },
+            error: (err) => {
+                renderTabError('benchmark', isRtl ? 'حدث خطأ أثناء تحميل المقارنة' : 'Error loading benchmark');
+            }
+        });
+    }
+
     function renderAIAnalysis() {
         const aiReport = state.data?.ai_report;
         
@@ -1003,7 +1524,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         if (period !== 'Annual') {
             page.fields_dict.period_number.set_value(period);
         }
-        fetchAnalysis();
+        fetchAnalysis(true);
     };
 
     // ==================== KPI INDICATORS FUNCTION ====================
