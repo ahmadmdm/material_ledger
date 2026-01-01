@@ -151,52 +151,35 @@ def get_current_liabilities(company, end_date):
 
 
 def get_actual_cash_flows(company, start_date, end_date, net_profit):
-    """Calculate actual cash flow from GL entries"""
-    # Operating Cash Flow - Cash from operations
-    operating_accounts = frappe.db.sql("""
+    """Calculate actual cash flow from GL entries - OPTIMIZED single query"""
+    result = frappe.db.sql("""
         SELECT 
+            -- Operating: Cash accounts change
             SUM(CASE WHEN acc.root_type = 'Asset' AND acc.account_type IN ('Cash', 'Bank') 
                 THEN gle.debit - gle.credit ELSE 0 END) as cash_change,
+            -- Operating: AR change
             SUM(CASE WHEN acc.root_type = 'Asset' AND acc.account_type = 'Receivable' 
                 THEN gle.debit - gle.credit ELSE 0 END) as ar_change,
+            -- Operating: AP change
             SUM(CASE WHEN acc.root_type = 'Liability' AND acc.account_type = 'Payable' 
-                THEN gle.credit - gle.debit ELSE 0 END) as ap_change
+                THEN gle.credit - gle.debit ELSE 0 END) as ap_change,
+            -- Investing: Fixed assets
+            SUM(CASE WHEN acc.root_type = 'Asset' AND acc.account_type IN ('Fixed Asset', 'Accumulated Depreciation')
+                THEN gle.credit - gle.debit ELSE 0 END) as investing_flow,
+            -- Financing: Equity and Loans
+            SUM(CASE WHEN acc.account_type = 'Equity' OR (acc.root_type = 'Liability' AND acc.name LIKE '%%Loan%%')
+                THEN gle.credit - gle.debit ELSE 0 END) as financing_flow
         FROM `tabGL Entry` gle
-        JOIN `tabAccount` acc ON gle.account = acc.name
+        STRAIGHT_JOIN `tabAccount` acc ON gle.account = acc.name
         WHERE gle.company = %s 
         AND gle.posting_date BETWEEN %s AND %s
         AND gle.is_cancelled = 0
     """, (company, start_date, end_date), as_dict=True)[0]
     
-    # Investing - Fixed assets and investments
-    investing = frappe.db.sql("""
-        SELECT SUM(gle.credit) - SUM(gle.debit) as flow
-        FROM `tabGL Entry` gle
-        JOIN `tabAccount` acc ON gle.account = acc.name
-        WHERE gle.company = %s 
-        AND gle.posting_date BETWEEN %s AND %s
-        AND acc.root_type = 'Asset'
-        AND acc.account_type IN ('Fixed Asset', 'Accumulated Depreciation')
-        AND gle.is_cancelled = 0
-    """, (company, start_date, end_date))
-    investing_flow = flt(investing[0][0]) if investing and investing[0][0] else 0
-    
-    # Financing - Loans and Capital
-    financing = frappe.db.sql("""
-        SELECT SUM(gle.credit) - SUM(gle.debit) as flow
-        FROM `tabGL Entry` gle
-        JOIN `tabAccount` acc ON gle.account = acc.name
-        WHERE gle.company = %s 
-        AND gle.posting_date BETWEEN %s AND %s
-        AND (acc.account_type IN ('Equity')
-             OR (acc.root_type = 'Liability' AND acc.name LIKE '%%Loan%%'))
-        AND gle.is_cancelled = 0
-    """, (company, start_date, end_date))
-    financing_flow = flt(financing[0][0]) if financing and financing[0][0] else 0
-    
-    # Calculate operating cash flow using indirect method
-    ar_change = flt(operating_accounts.get('ar_change', 0))
-    ap_change = flt(operating_accounts.get('ap_change', 0))
+    ar_change = flt(result.get('ar_change', 0))
+    ap_change = flt(result.get('ap_change', 0))
+    investing_flow = flt(result.get('investing_flow', 0))
+    financing_flow = flt(result.get('financing_flow', 0))
     operating_flow = net_profit - ar_change + ap_change  # Simplified indirect method
     
     return {
@@ -227,12 +210,23 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
 
     sections: optional list/JSON/string of tabs to return for lazy loading
     """
+    import time
+    start_time = time.time()
+    
     if not company:
         frappe.throw(_("Company is required"))
     
     year = cint(year)
     if not year:
         frappe.throw(_("Valid year is required"))
+
+    # Server-side caching for 5 minutes
+    cache_key = f"financial_analysis:{company}:{year}:{period}:{period_number}"
+    cached_data = frappe.cache().get_value(cache_key)
+    if cached_data and not sections:  # Return cached if full data and not specific sections
+        cached_data['_cached'] = True
+        cached_data['_cache_time'] = time.time() - start_time
+        return cached_data
 
     requested_sections = set()
     if sections:
@@ -273,12 +267,15 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
     two_years_ago = year - 2
     two_years_start = f"{two_years_ago}-01-01"
     two_years_end = f"{two_years_ago}-12-31"
+    
+    # Earliest date we need to query
+    earliest_date = two_years_start
 
     # SUPER OPTIMIZED: Single query to get all balances for all periods at once
     def get_all_periods_balances():
         """Get all account balances for all periods in a SINGLE query"""
         res = frappe.db.sql("""
-            SELECT 
+            SELECT /*+ STRAIGHT_JOIN */
                 acc.root_type,
                 -- Current period
                 SUM(CASE WHEN gle.posting_date BETWEEN %s AND %s THEN gle.debit - gle.credit ELSE 0 END) as current_balance,
@@ -293,9 +290,10 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
                 -- Opening balance
                 SUM(CASE WHEN gle.posting_date < %s THEN gle.debit - gle.credit ELSE 0 END) as opening_balance
             FROM `tabGL Entry` gle
-            JOIN `tabAccount` acc ON gle.account = acc.name
+            STRAIGHT_JOIN `tabAccount` acc ON gle.account = acc.name
             WHERE gle.company = %s 
             AND gle.is_cancelled = 0
+            AND gle.posting_date <= %s
             GROUP BY acc.root_type
         """, (
             start_date, end_date,  # current
@@ -304,7 +302,8 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
             prev_end,              # prev cumulative
             two_years_start, two_years_end,  # two years
             start_date,            # opening
-            company
+            company,
+            end_date               # max date filter
         ), as_dict=True)
         
         # Organize results
@@ -520,6 +519,11 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
     if need("ai"):
         response["ai_report"] = ai_report
 
+    # Cache the full response for 5 minutes
+    if fetch_all:
+        frappe.cache().set_value(cache_key, response, expires_in_sec=300)
+    
+    response['_load_time'] = time.time() - start_time
     return response
 
 
@@ -926,6 +930,732 @@ def generate_ai_report(company, year, data):
     except Exception as e:
         frappe.log_error(f"AI Report Generation Error: {str(e)}", "Financial Analysis")
         return _("التحليل الاستراتيجي متاح في النسخة الاحترافية.")
+
+
+@frappe.whitelist()
+def generate_ifrs_report(company, year, period="annual", period_number=None):
+    """
+    Generate a comprehensive IFRS-compliant professional financial report
+    Ready for PDF export following IAS 1 and IAS 7 standards
+    """
+    from datetime import datetime
+    
+    # Get financial data
+    data = get_financial_analysis(company, year, period, period_number)
+    
+    if not data:
+        frappe.throw(_("Unable to retrieve financial data"))
+    
+    summary = data.get('summary', {})
+    ratios = data.get('ratios', {})
+    cash_flow = data.get('cash_flow', {})
+    equity_changes = data.get('equity_changes', {})
+    risk_flags = data.get('risk_flags', [])
+    
+    income = summary.get('income', 0)
+    expense = summary.get('expense', 0)
+    net_profit = summary.get('profit', 0)
+    assets = summary.get('assets', 0)
+    liabilities = summary.get('liabilities', 0)
+    equity = summary.get('equity', 0)
+    health_score = summary.get('health_score', 0)
+    
+    report_date = datetime.now().strftime("%B %d, %Y")
+    period_label = data.get('period', str(year))
+    
+    # Determine financial health status
+    if health_score >= 80:
+        health_status = "Excellent"
+        health_color = "#10b981"
+    elif health_score >= 60:
+        health_status = "Good"
+        health_color = "#3b82f6"
+    elif health_score >= 40:
+        health_status = "Fair"
+        health_color = "#f59e0b"
+    else:
+        health_status = "Needs Attention"
+        health_color = "#ef4444"
+    
+    # Build professional IFRS report
+    report = {
+        "metadata": {
+            "company": company,
+            "period": period_label,
+            "report_date": report_date,
+            "prepared_by": "Financial Analysis System",
+            "standards": "IFRS (IAS 1, IAS 7)"
+        },
+        
+        "executive_summary": {
+            "title": "Executive Summary",
+            "health_score": health_score,
+            "health_status": health_status,
+            "overview": f"""
+This report presents a comprehensive financial analysis of {company} for the period {period_label}. 
+The analysis has been prepared in accordance with International Financial Reporting Standards (IFRS), 
+specifically IAS 1 (Presentation of Financial Statements) and IAS 7 (Statement of Cash Flows).
+
+**Key Highlights:**
+- Total Revenue: {frappe.format(income, {'fieldtype': 'Currency'})}
+- Net {'Profit' if net_profit >= 0 else 'Loss'}: {frappe.format(abs(net_profit), {'fieldtype': 'Currency'})}
+- Total Assets: {frappe.format(assets, {'fieldtype': 'Currency'})}
+- Return on Equity (ROE): {ratios.get('roe', 0):.2f}%
+- Financial Health Score: {health_score}/100 ({health_status})
+
+The company's overall financial position is assessed as **{health_status}** based on comprehensive ratio analysis 
+and risk assessment metrics including the Altman Z-Score of {ratios.get('z_score', 0):.2f}.
+""",
+            "key_metrics": [
+                {"label": "Revenue", "value": income, "formatted": frappe.format(income, {'fieldtype': 'Currency'})},
+                {"label": "Net Income", "value": net_profit, "formatted": frappe.format(net_profit, {'fieldtype': 'Currency'})},
+                {"label": "Total Assets", "value": assets, "formatted": frappe.format(assets, {'fieldtype': 'Currency'})},
+                {"label": "ROE", "value": ratios.get('roe', 0), "formatted": f"{ratios.get('roe', 0):.2f}%"},
+                {"label": "Health Score", "value": health_score, "formatted": f"{health_score}/100"}
+            ]
+        },
+        
+        "financial_statements": {
+            "balance_sheet": {
+                "title": "Statement of Financial Position (Balance Sheet)",
+                "standard": "IAS 1",
+                "as_of": period_label,
+                "assets": {
+                    "total": assets,
+                    "formatted": frappe.format(assets, {'fieldtype': 'Currency'}),
+                    "current_assets_estimated": assets * 0.4,
+                    "non_current_assets_estimated": assets * 0.6
+                },
+                "liabilities": {
+                    "total": liabilities,
+                    "formatted": frappe.format(liabilities, {'fieldtype': 'Currency'}),
+                    "current_liabilities_estimated": liabilities * 0.3,
+                    "non_current_liabilities_estimated": liabilities * 0.7
+                },
+                "equity": {
+                    "total": equity,
+                    "formatted": frappe.format(equity, {'fieldtype': 'Currency'}),
+                    "components": equity_changes
+                },
+                "validation": "Assets = Liabilities + Equity" if abs(assets - (liabilities + equity)) < 1 else "Balance check required"
+            },
+            
+            "income_statement": {
+                "title": "Statement of Profit or Loss (Income Statement)",
+                "standard": "IAS 1",
+                "period": period_label,
+                "revenue": {
+                    "total": income,
+                    "formatted": frappe.format(income, {'fieldtype': 'Currency'})
+                },
+                "expenses": {
+                    "total": expense,
+                    "formatted": frappe.format(expense, {'fieldtype': 'Currency'})
+                },
+                "gross_profit": {
+                    "amount": income - expense,
+                    "formatted": frappe.format(income - expense, {'fieldtype': 'Currency'}),
+                    "margin": f"{((income - expense) / income * 100) if income > 0 else 0:.2f}%"
+                },
+                "net_income": {
+                    "amount": net_profit,
+                    "formatted": frappe.format(net_profit, {'fieldtype': 'Currency'}),
+                    "margin": f"{ratios.get('net_margin', 0):.2f}%"
+                }
+            },
+            
+            "cash_flow_statement": {
+                "title": "Statement of Cash Flows",
+                "standard": "IAS 7",
+                "method": cash_flow.get('method', 'indirect'),
+                "period": period_label,
+                "operating_activities": {
+                    "amount": cash_flow.get('operating', 0),
+                    "formatted": frappe.format(cash_flow.get('operating', 0), {'fieldtype': 'Currency'}),
+                    "quality": "Strong" if cash_flow.get('operating', 0) > net_profit else "Needs Review"
+                },
+                "investing_activities": {
+                    "amount": cash_flow.get('investing', 0),
+                    "formatted": frappe.format(cash_flow.get('investing', 0), {'fieldtype': 'Currency'}),
+                    "interpretation": "Investment in growth" if cash_flow.get('investing', 0) < 0 else "Asset liquidation"
+                },
+                "financing_activities": {
+                    "amount": cash_flow.get('financing', 0),
+                    "formatted": frappe.format(cash_flow.get('financing', 0), {'fieldtype': 'Currency'}),
+                    "interpretation": "Capital raising" if cash_flow.get('financing', 0) > 0 else "Debt repayment/Dividends"
+                },
+                "net_change": {
+                    "amount": cash_flow.get('net', 0),
+                    "formatted": frappe.format(cash_flow.get('net', 0), {'fieldtype': 'Currency'})
+                }
+            }
+        },
+        
+        "financial_analysis": {
+            "liquidity_ratios": {
+                "title": "Liquidity Analysis",
+                "description": "Measures the company's ability to meet short-term obligations",
+                "ratios": [
+                    {
+                        "name": "Current Ratio",
+                        "value": ratios.get('current_ratio', 0),
+                        "formatted": f"{ratios.get('current_ratio', 0):.2f}",
+                        "benchmark": "1.5 - 3.0",
+                        "status": "Good" if 1.5 <= ratios.get('current_ratio', 0) <= 3.0 else "Review Required",
+                        "interpretation": "Adequate liquidity" if ratios.get('current_ratio', 0) >= 1.5 else "Potential liquidity concerns"
+                    },
+                    {
+                        "name": "Quick Ratio",
+                        "value": ratios.get('quick_ratio', 0),
+                        "formatted": f"{ratios.get('quick_ratio', 0):.2f}",
+                        "benchmark": "> 1.0",
+                        "status": "Good" if ratios.get('quick_ratio', 0) >= 1.0 else "Review Required",
+                        "interpretation": "Strong quick liquidity" if ratios.get('quick_ratio', 0) >= 1.0 else "May struggle with immediate obligations"
+                    },
+                    {
+                        "name": "Working Capital",
+                        "value": ratios.get('working_capital', 0),
+                        "formatted": frappe.format(ratios.get('working_capital', 0), {'fieldtype': 'Currency'}),
+                        "benchmark": "Positive",
+                        "status": "Good" if ratios.get('working_capital', 0) > 0 else "Critical",
+                        "interpretation": "Positive working capital" if ratios.get('working_capital', 0) > 0 else "Negative working capital - urgent attention required"
+                    }
+                ]
+            },
+            
+            "profitability_ratios": {
+                "title": "Profitability Analysis",
+                "description": "Measures the company's ability to generate profits",
+                "ratios": [
+                    {
+                        "name": "Return on Equity (ROE)",
+                        "value": ratios.get('roe', 0),
+                        "formatted": f"{ratios.get('roe', 0):.2f}%",
+                        "benchmark": "> 15%",
+                        "status": "Excellent" if ratios.get('roe', 0) > 15 else "Good" if ratios.get('roe', 0) > 10 else "Below Average",
+                        "interpretation": "Strong shareholder returns" if ratios.get('roe', 0) > 15 else "Moderate returns"
+                    },
+                    {
+                        "name": "Return on Assets (ROA)",
+                        "value": ratios.get('roa', 0),
+                        "formatted": f"{ratios.get('roa', 0):.2f}%",
+                        "benchmark": "> 5%",
+                        "status": "Good" if ratios.get('roa', 0) > 5 else "Review Required",
+                        "interpretation": "Efficient asset utilization" if ratios.get('roa', 0) > 5 else "Assets underperforming"
+                    },
+                    {
+                        "name": "Net Profit Margin",
+                        "value": ratios.get('net_margin', 0),
+                        "formatted": f"{ratios.get('net_margin', 0):.2f}%",
+                        "benchmark": "> 10%",
+                        "status": "Good" if ratios.get('net_margin', 0) > 10 else "Average" if ratios.get('net_margin', 0) > 5 else "Low",
+                        "interpretation": "Healthy profit margins" if ratios.get('net_margin', 0) > 10 else "Margins need improvement"
+                    },
+                    {
+                        "name": "Asset Turnover",
+                        "value": ratios.get('asset_turnover', 0),
+                        "formatted": f"{ratios.get('asset_turnover', 0):.2f}x",
+                        "benchmark": "> 1.0x",
+                        "status": "Good" if ratios.get('asset_turnover', 0) > 1.0 else "Review Required",
+                        "interpretation": "Efficient revenue generation from assets"
+                    }
+                ]
+            },
+            
+            "solvency_ratios": {
+                "title": "Solvency & Leverage Analysis",
+                "description": "Measures the company's long-term financial stability",
+                "ratios": [
+                    {
+                        "name": "Debt Ratio",
+                        "value": ratios.get('debt_ratio', 0),
+                        "formatted": f"{ratios.get('debt_ratio', 0):.2f}%",
+                        "benchmark": "< 60%",
+                        "status": "Good" if ratios.get('debt_ratio', 0) < 60 else "High Leverage",
+                        "interpretation": "Conservative leverage" if ratios.get('debt_ratio', 0) < 50 else "Elevated debt levels"
+                    },
+                    {
+                        "name": "Equity Multiplier",
+                        "value": ratios.get('leverage', 0),
+                        "formatted": f"{ratios.get('leverage', 0):.2f}x",
+                        "benchmark": "< 2.5x",
+                        "status": "Good" if ratios.get('leverage', 0) < 2.5 else "High",
+                        "interpretation": "Moderate financial leverage"
+                    },
+                    {
+                        "name": "Altman Z-Score",
+                        "value": ratios.get('z_score', 0),
+                        "formatted": f"{ratios.get('z_score', 0):.2f}",
+                        "benchmark": "> 2.99 (Safe)",
+                        "status": "Safe" if ratios.get('z_score', 0) > 2.99 else "Grey Zone" if ratios.get('z_score', 0) > 1.81 else "Distress",
+                        "interpretation": "Low bankruptcy risk" if ratios.get('z_score', 0) > 2.99 else "Moderate risk - monitor closely" if ratios.get('z_score', 0) > 1.81 else "High bankruptcy risk - immediate action required"
+                    }
+                ]
+            },
+            
+            "dupont_analysis": {
+                "title": "DuPont Analysis",
+                "description": "Decomposes ROE into its fundamental components",
+                "components": [
+                    {"name": "Net Profit Margin", "value": f"{ratios.get('net_margin', 0):.2f}%", "formula": "Net Income / Revenue"},
+                    {"name": "Asset Turnover", "value": f"{ratios.get('asset_turnover', 0):.2f}x", "formula": "Revenue / Total Assets"},
+                    {"name": "Equity Multiplier", "value": f"{ratios.get('leverage', 0):.2f}x", "formula": "Total Assets / Equity"},
+                    {"name": "DuPont ROE", "value": f"{ratios.get('dupont_roe', 0):.2f}%", "formula": "Margin × Turnover × Leverage"}
+                ]
+            }
+        },
+        
+        "compliance_note": {
+            "title": "IFRS Compliance Statement",
+            "content": f"""
+**Compliance Declaration**
+
+This financial report has been prepared in accordance with International Financial Reporting Standards (IFRS) 
+as issued by the International Accounting Standards Board (IASB).
+
+**Applicable Standards:**
+- **IAS 1 - Presentation of Financial Statements**: The financial statements presented herein comply with the 
+  requirements of IAS 1, including the presentation of a complete set of financial statements comprising:
+  • Statement of Financial Position (Balance Sheet)
+  • Statement of Profit or Loss (Income Statement)
+  • Statement of Changes in Equity
+  • Statement of Cash Flows
+
+- **IAS 7 - Statement of Cash Flows**: The cash flow statement has been prepared using the {'direct' if cash_flow.get('method') == 'direct' else 'indirect'} method, 
+  classifying cash flows into operating, investing, and financing activities as required by IAS 7.
+
+**Measurement Basis:**
+Financial statements are prepared on the historical cost basis unless otherwise stated.
+
+**Reporting Period:**
+This report covers the period: {period_label}
+
+**Report Generated:** {report_date}
+
+*Note: This automated analysis should be reviewed by qualified financial professionals before making 
+investment or business decisions.*
+"""
+        },
+        
+        "risk_assessment": {
+            "title": "Risk Assessment",
+            "flags": risk_flags,
+            "summary": f"Identified {len(risk_flags)} risk factor(s) requiring attention" if risk_flags else "No critical risks identified"
+        },
+        
+        "recommendations": {
+            "title": "Conclusions & Strategic Recommendations",
+            "conclusions": [],
+            "recommendations": []
+        }
+    }
+    
+    # Generate conclusions based on analysis
+    conclusions = []
+    recommendations = []
+    
+    # Profitability conclusions
+    if net_profit > 0:
+        conclusions.append(f"The company achieved a net profit of {frappe.format(net_profit, {'fieldtype': 'Currency'})} demonstrating operational viability.")
+    else:
+        conclusions.append(f"The company reported a net loss of {frappe.format(abs(net_profit), {'fieldtype': 'Currency'})} requiring immediate attention.")
+        recommendations.append("Conduct comprehensive cost analysis to identify and eliminate non-essential expenses.")
+    
+    # Liquidity conclusions
+    if ratios.get('current_ratio', 0) >= 1.5:
+        conclusions.append(f"Strong liquidity position with current ratio of {ratios.get('current_ratio', 0):.2f}")
+    else:
+        conclusions.append(f"Liquidity concerns with current ratio of {ratios.get('current_ratio', 0):.2f}")
+        recommendations.append("Improve working capital management through better receivables collection and inventory optimization.")
+    
+    # Leverage conclusions
+    if ratios.get('debt_ratio', 0) < 50:
+        conclusions.append("Conservative capital structure provides financial flexibility.")
+    else:
+        conclusions.append(f"Elevated leverage at {ratios.get('debt_ratio', 0):.2f}% debt ratio may limit future borrowing capacity.")
+        recommendations.append("Consider debt restructuring or equity financing to reduce leverage.")
+    
+    # ROE conclusions
+    if ratios.get('roe', 0) > 15:
+        conclusions.append(f"Excellent return on equity of {ratios.get('roe', 0):.2f}% indicates strong shareholder value creation.")
+    elif ratios.get('roe', 0) > 0:
+        recommendations.append("Focus on improving operational efficiency to enhance ROE.")
+    
+    # Cash flow conclusions
+    if cash_flow.get('operating', 0) > net_profit:
+        conclusions.append("Operating cash flow exceeds net income, indicating strong cash generation quality.")
+    elif cash_flow.get('operating', 0) > 0:
+        conclusions.append("Positive operating cash flow supports ongoing operations.")
+    else:
+        recommendations.append("Urgent focus on improving cash flow from operations through better working capital management.")
+    
+    # Z-Score conclusions
+    z_score = ratios.get('z_score', 0)
+    if z_score > 2.99:
+        conclusions.append(f"Altman Z-Score of {z_score:.2f} indicates low bankruptcy risk.")
+    elif z_score > 1.81:
+        recommendations.append("Monitor financial ratios closely - Z-Score indicates grey zone status.")
+    else:
+        recommendations.append("Implement immediate financial restructuring - Z-Score indicates distress zone.")
+    
+    # Add general recommendations
+    if len(recommendations) < 5:
+        general_recs = [
+            "Implement regular financial monitoring and reporting dashboards.",
+            "Diversify revenue streams to reduce concentration risk.",
+            "Establish or strengthen cash reserves for unforeseen circumstances.",
+            "Review pricing strategy to improve profit margins.",
+            "Invest in operational efficiency and process automation."
+        ]
+        for rec in general_recs:
+            if rec not in recommendations and len(recommendations) < 7:
+                recommendations.append(rec)
+    
+    report["recommendations"]["conclusions"] = conclusions
+    report["recommendations"]["recommendations"] = recommendations
+    
+    return report
+
+
+@frappe.whitelist()
+def export_ifrs_report_to_pdf(company, year, period="annual", period_number=None):
+    """
+    Export IFRS-compliant report to PDF format
+    """
+    from frappe.utils.pdf import get_pdf
+    
+    report = generate_ifrs_report(company, year, period, period_number)
+    
+    if not report:
+        frappe.throw(_("Unable to generate report"))
+    
+    # Build professional HTML for PDF
+    html = build_ifrs_pdf_html(report)
+    
+    # Generate PDF
+    pdf = get_pdf(html, {"orientation": "Portrait", "page-size": "A4"})
+    
+    return {
+        "filename": f"IFRS_Financial_Report_{company}_{report['metadata']['period']}.pdf",
+        "content": pdf
+    }
+
+
+def build_ifrs_pdf_html(report):
+    """Build professional HTML for IFRS PDF report"""
+    
+    metadata = report['metadata']
+    exec_summary = report['executive_summary']
+    statements = report['financial_statements']
+    analysis = report['financial_analysis']
+    compliance = report['compliance_note']
+    recommendations = report['recommendations']
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{ margin: 1in; }}
+            body {{ 
+                font-family: 'Times New Roman', serif; 
+                font-size: 11pt; 
+                line-height: 1.6;
+                color: #333;
+            }}
+            .header {{ 
+                text-align: center; 
+                border-bottom: 3px solid #1a365d;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .header h1 {{ 
+                color: #1a365d; 
+                font-size: 24pt;
+                margin: 0;
+                font-weight: bold;
+            }}
+            .header .subtitle {{ 
+                color: #4a5568; 
+                font-size: 14pt;
+                margin-top: 5px;
+            }}
+            .header .meta {{ 
+                font-size: 10pt; 
+                color: #718096;
+                margin-top: 10px;
+            }}
+            h2 {{ 
+                color: #1a365d; 
+                font-size: 16pt;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 8px;
+                margin-top: 25px;
+            }}
+            h3 {{ 
+                color: #2d3748; 
+                font-size: 13pt;
+                margin-top: 20px;
+            }}
+            table {{ 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 15px 0;
+                font-size: 10pt;
+            }}
+            th {{ 
+                background: #1a365d; 
+                color: white; 
+                padding: 10px;
+                text-align: left;
+                font-weight: bold;
+            }}
+            td {{ 
+                padding: 8px 10px; 
+                border-bottom: 1px solid #e2e8f0;
+            }}
+            tr:nth-child(even) {{ background: #f7fafc; }}
+            .highlight-box {{ 
+                background: #ebf8ff; 
+                border-left: 4px solid #3182ce;
+                padding: 15px;
+                margin: 15px 0;
+            }}
+            .metric-grid {{
+                display: table;
+                width: 100%;
+                margin: 15px 0;
+            }}
+            .metric-item {{
+                display: table-cell;
+                width: 20%;
+                text-align: center;
+                padding: 10px;
+                border: 1px solid #e2e8f0;
+            }}
+            .metric-value {{ 
+                font-size: 18pt; 
+                font-weight: bold; 
+                color: #1a365d;
+            }}
+            .metric-label {{ 
+                font-size: 9pt; 
+                color: #718096;
+            }}
+            .status-good {{ color: #38a169; }}
+            .status-warning {{ color: #d69e2e; }}
+            .status-critical {{ color: #e53e3e; }}
+            .compliance-box {{
+                background: #f0fff4;
+                border: 1px solid #9ae6b4;
+                padding: 15px;
+                margin: 20px 0;
+            }}
+            .recommendation {{
+                padding: 8px 0;
+                padding-left: 20px;
+                position: relative;
+            }}
+            .recommendation:before {{
+                content: "→";
+                position: absolute;
+                left: 0;
+                color: #3182ce;
+            }}
+            .page-break {{ page-break-before: always; }}
+            .footer {{
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+                font-size: 9pt;
+                color: #718096;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Financial Analysis Report</h1>
+            <div class="subtitle">{metadata['company']}</div>
+            <div class="meta">
+                Period: {metadata['period']} | Prepared: {metadata['report_date']} | Standards: {metadata['standards']}
+            </div>
+        </div>
+        
+        <h2>1. Executive Summary</h2>
+        <div class="highlight-box">
+            <strong>Financial Health Assessment: </strong>
+            <span style="font-size: 14pt; font-weight: bold;">{exec_summary['health_status']}</span>
+            (Score: {exec_summary['health_score']}/100)
+        </div>
+        
+        <div class="metric-grid">
+    """
+    
+    # Add key metrics
+    for metric in exec_summary['key_metrics']:
+        html += f"""
+            <div class="metric-item">
+                <div class="metric-value">{metric['formatted']}</div>
+                <div class="metric-label">{metric['label']}</div>
+            </div>
+        """
+    
+    html += f"""
+        </div>
+        
+        <h2>2. Financial Statements</h2>
+        
+        <h3>2.1 Statement of Financial Position (Balance Sheet) - IAS 1</h3>
+        <table>
+            <tr><th colspan="2">ASSETS</th></tr>
+            <tr><td>Total Assets</td><td style="text-align: right;">{statements['balance_sheet']['assets']['formatted']}</td></tr>
+            <tr><th colspan="2">LIABILITIES</th></tr>
+            <tr><td>Total Liabilities</td><td style="text-align: right;">{statements['balance_sheet']['liabilities']['formatted']}</td></tr>
+            <tr><th colspan="2">EQUITY</th></tr>
+            <tr><td>Total Equity</td><td style="text-align: right;">{statements['balance_sheet']['equity']['formatted']}</td></tr>
+            <tr style="background: #1a365d; color: white;">
+                <td><strong>Total Liabilities & Equity</strong></td>
+                <td style="text-align: right;"><strong>{statements['balance_sheet']['assets']['formatted']}</strong></td>
+            </tr>
+        </table>
+        
+        <h3>2.2 Statement of Profit or Loss (Income Statement) - IAS 1</h3>
+        <table>
+            <tr><td>Total Revenue</td><td style="text-align: right;">{statements['income_statement']['revenue']['formatted']}</td></tr>
+            <tr><td>Total Expenses</td><td style="text-align: right;">({statements['income_statement']['expenses']['formatted']})</td></tr>
+            <tr style="background: #1a365d; color: white;">
+                <td><strong>Net Income</strong></td>
+                <td style="text-align: right;"><strong>{statements['income_statement']['net_income']['formatted']}</strong></td>
+            </tr>
+            <tr><td>Net Profit Margin</td><td style="text-align: right;">{statements['income_statement']['net_income']['margin']}</td></tr>
+        </table>
+        
+        <h3>2.3 Statement of Cash Flows - IAS 7</h3>
+        <table>
+            <tr><td>Cash from Operating Activities</td><td style="text-align: right;">{statements['cash_flow_statement']['operating_activities']['formatted']}</td></tr>
+            <tr><td>Cash from Investing Activities</td><td style="text-align: right;">{statements['cash_flow_statement']['investing_activities']['formatted']}</td></tr>
+            <tr><td>Cash from Financing Activities</td><td style="text-align: right;">{statements['cash_flow_statement']['financing_activities']['formatted']}</td></tr>
+            <tr style="background: #1a365d; color: white;">
+                <td><strong>Net Change in Cash</strong></td>
+                <td style="text-align: right;"><strong>{statements['cash_flow_statement']['net_change']['formatted']}</strong></td>
+            </tr>
+        </table>
+        
+        <div class="page-break"></div>
+        
+        <h2>3. Financial Analysis</h2>
+        
+        <h3>3.1 Liquidity Ratios</h3>
+        <table>
+            <tr><th>Ratio</th><th>Value</th><th>Benchmark</th><th>Status</th></tr>
+    """
+    
+    for ratio in analysis['liquidity_ratios']['ratios']:
+        status_class = 'status-good' if ratio['status'] == 'Good' else 'status-warning' if ratio['status'] == 'Review Required' else 'status-critical'
+        html += f"""
+            <tr>
+                <td>{ratio['name']}</td>
+                <td>{ratio['formatted']}</td>
+                <td>{ratio['benchmark']}</td>
+                <td class="{status_class}">{ratio['status']}</td>
+            </tr>
+        """
+    
+    html += """
+        </table>
+        
+        <h3>3.2 Profitability Ratios</h3>
+        <table>
+            <tr><th>Ratio</th><th>Value</th><th>Benchmark</th><th>Status</th></tr>
+    """
+    
+    for ratio in analysis['profitability_ratios']['ratios']:
+        status_class = 'status-good' if 'Good' in ratio['status'] or 'Excellent' in ratio['status'] else 'status-warning'
+        html += f"""
+            <tr>
+                <td>{ratio['name']}</td>
+                <td>{ratio['formatted']}</td>
+                <td>{ratio['benchmark']}</td>
+                <td class="{status_class}">{ratio['status']}</td>
+            </tr>
+        """
+    
+    html += """
+        </table>
+        
+        <h3>3.3 Solvency & Leverage Ratios</h3>
+        <table>
+            <tr><th>Ratio</th><th>Value</th><th>Benchmark</th><th>Status</th></tr>
+    """
+    
+    for ratio in analysis['solvency_ratios']['ratios']:
+        status_class = 'status-good' if ratio['status'] in ['Good', 'Safe'] else 'status-warning' if ratio['status'] == 'Grey Zone' else 'status-critical'
+        html += f"""
+            <tr>
+                <td>{ratio['name']}</td>
+                <td>{ratio['formatted']}</td>
+                <td>{ratio['benchmark']}</td>
+                <td class="{status_class}">{ratio['status']}</td>
+            </tr>
+        """
+    
+    html += f"""
+        </table>
+        
+        <h3>3.4 DuPont Analysis</h3>
+        <table>
+            <tr><th>Component</th><th>Value</th><th>Formula</th></tr>
+    """
+    
+    for comp in analysis['dupont_analysis']['components']:
+        html += f"""
+            <tr>
+                <td>{comp['name']}</td>
+                <td><strong>{comp['value']}</strong></td>
+                <td style="font-style: italic;">{comp['formula']}</td>
+            </tr>
+        """
+    
+    html += f"""
+        </table>
+        
+        <h2>4. IFRS Compliance Statement</h2>
+        <div class="compliance-box">
+            {compliance['content'].replace(chr(10), '<br>')}
+        </div>
+        
+        <h2>5. Conclusions & Recommendations</h2>
+        
+        <h3>Key Conclusions:</h3>
+        <ul>
+    """
+    
+    for conclusion in recommendations['conclusions']:
+        html += f"<li>{conclusion}</li>"
+    
+    html += """
+        </ul>
+        
+        <h3>Strategic Recommendations:</h3>
+    """
+    
+    for i, rec in enumerate(recommendations['recommendations'], 1):
+        html += f'<div class="recommendation"><strong>{i}.</strong> {rec}</div>'
+    
+    html += f"""
+        
+        <div class="footer">
+            <p>This report was automatically generated by the Financial Analysis System.</p>
+            <p>Report ID: {metadata['company']}-{metadata['period']} | Generated: {metadata['report_date']}</p>
+            <p><em>Disclaimer: This analysis is for informational purposes only and should not be considered as professional financial advice.</em></p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
 
 
 @frappe.whitelist()

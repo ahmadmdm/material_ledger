@@ -334,6 +334,38 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         loadTab(tab);
     }
 
+    function loadTab(tab) {
+        // Load content for the selected tab
+        if (!state.data) {
+            renderTabLoader(tab);
+            return;
+        }
+        
+        const tabRenderers = {
+            'dashboard': renderDashboard,
+            'income': renderIncomeStatement,
+            'balance': renderBalanceSheet,
+            'cash': renderCashFlow,
+            'equity': renderEquityChanges,
+            'dupont': renderDuPont,
+            'ratios': renderRatios,
+            'forecast': renderForecast,
+            'benchmark': renderBenchmark,
+            'ai': renderAIAnalysis,
+            'charts': renderCharts
+        };
+        
+        const renderer = tabRenderers[tab];
+        if (renderer) {
+            try {
+                renderer();
+            } catch(e) {
+                console.error('Error loading tab ' + tab + ':', e);
+                renderTabStatus(tab, isRtl ? 'خطأ في تحميل البيانات' : 'Error loading data', 'error');
+            }
+        }
+    }
+
     function getTabLoadingMessage(tab) {
         const copy = {
             dashboard: isRtl ? 'جاري تحميل لوحة القيادة والملخص' : 'Loading dashboard summary',
@@ -400,7 +432,8 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
 
     function setupActions() {
         page.set_primary_action(t('refresh'), fetchAnalysis, 'refresh');
-        page.add_action_item('📥 PDF Export', () => exportToPDF());
+        page.add_action_item('� IFRS Professional Report', () => exportIfrsReport(true));
+        page.add_action_item('�📥 PDF Export', () => exportToPDF());
         page.add_action_item('📊 Excel Export', () => exportToExcel());
         page.add_action_item('⭐ Compare Periods', () => showComparisonModal());
         page.add_action_item('🌙 Toggle Dark Mode', () => toggleDarkMode());
@@ -1271,11 +1304,526 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     
     function exportToPDF() {
         if (!state.data) {
-            frappe.msgprint('لا توجد بيانات للتصدير');
+            frappe.msgprint(isRtl ? 'لا توجد بيانات للتصدير' : 'No data to export');
             return;
         }
         
-        // Generate PDF from HTML
+        // Ask user which format they want
+        frappe.prompt([
+            {
+                fieldname: 'format',
+                label: isRtl ? 'نوع التقرير' : 'Report Format',
+                fieldtype: 'Select',
+                options: isRtl ? 
+                    'تقرير بسيط\nتقرير IFRS احترافي' : 
+                    'Simple Report\nProfessional IFRS Report',
+                default: isRtl ? 'تقرير IFRS احترافي' : 'Professional IFRS Report',
+                reqd: 1
+            },
+            {
+                fieldname: 'language',
+                label: isRtl ? 'لغة التقرير' : 'Report Language',
+                fieldtype: 'Select',
+                options: 'English\nArabic',
+                default: 'English',
+                reqd: 1
+            }
+        ], function(values) {
+            const isIfrsReport = values.format.includes('IFRS') || values.format.includes('احترافي');
+            const isEnglish = values.language === 'English';
+            
+            if (isIfrsReport) {
+                exportIfrsReport(isEnglish);
+            } else {
+                exportSimpleReport();
+            }
+        }, isRtl ? 'خيارات التصدير' : 'Export Options', isRtl ? 'تصدير' : 'Export');
+    }
+    
+    function exportIfrsReport(isEnglish = true) {
+        frappe.show_progress(
+            isRtl ? 'إنشاء التقرير' : 'Generating Report', 
+            30, 100, 
+            isRtl ? 'جاري تجهيز التقرير الاحترافي...' : 'Preparing professional IFRS report...'
+        );
+        
+        frappe.xcall('material_ledger.material_ledger.api.generate_ifrs_report', {
+            company: state.filters.company,
+            year: state.filters.year,
+            period: state.filters.period,
+            period_number: state.filters.period_number
+        }).then(report => {
+            frappe.show_progress(
+                isRtl ? 'إنشاء التقرير' : 'Generating Report', 
+                80, 100, 
+                isRtl ? 'جاري إنشاء ملف PDF...' : 'Creating PDF file...'
+            );
+            
+            if (!report) {
+                frappe.hide_progress();
+                frappe.msgprint(isRtl ? 'فشل في إنشاء التقرير' : 'Failed to generate report');
+                return;
+            }
+            
+            // Generate professional HTML
+            let htmlContent = buildIfrsHtml(report, isEnglish);
+            
+            frappe.hide_progress();
+            
+            try {
+                let printWindow = window.open('', '_blank', 'height=800,width=1000');
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                
+                // Auto print after load
+                printWindow.onload = function() {
+                    printWindow.print();
+                };
+                
+                frappe.show_alert({ 
+                    message: isRtl ? '✅ تم فتح التقرير الاحترافي' : '✅ Professional report opened', 
+                    indicator: 'green' 
+                });
+            } catch(e) {
+                frappe.msgprint((isRtl ? '❌ خطأ في فتح التقرير: ' : '❌ Error opening report: ') + e.message);
+            }
+        }).catch(err => {
+            frappe.hide_progress();
+            frappe.msgprint((isRtl ? '❌ خطأ: ' : '❌ Error: ') + (err.message || err));
+        });
+    }
+    
+    function buildIfrsHtml(report, isEnglish = true) {
+        const meta = report.metadata;
+        const summary = report.executive_summary;
+        const statements = report.financial_statements;
+        const analysis = report.financial_analysis;
+        const compliance = report.compliance_note;
+        const recommendations = report.recommendations;
+        
+        const dir = isEnglish ? 'ltr' : 'rtl';
+        const textAlign = isEnglish ? 'left' : 'right';
+        
+        return `
+        <!DOCTYPE html>
+        <html lang="${isEnglish ? 'en' : 'ar'}" dir="${dir}">
+        <head>
+            <meta charset="UTF-8">
+            <title>IFRS Financial Report - ${meta.company}</title>
+            <style>
+                @page { 
+                    margin: 0.75in; 
+                    size: A4;
+                }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .page-break { page-break-before: always; }
+                    .no-print { display: none; }
+                }
+                * { box-sizing: border-box; }
+                body { 
+                    font-family: ${isEnglish ? "'Segoe UI', 'Times New Roman', serif" : "'Cairo', 'Traditional Arabic', sans-serif"}; 
+                    font-size: 11pt; 
+                    line-height: 1.7;
+                    color: #1a202c;
+                    margin: 0;
+                    padding: 20px;
+                    background: white;
+                    direction: ${dir};
+                    text-align: ${textAlign};
+                }
+                .header { 
+                    text-align: center; 
+                    border-bottom: 4px solid #1a365d;
+                    padding-bottom: 20px;
+                    margin-bottom: 30px;
+                    background: linear-gradient(to bottom, #f8fafc 0%, white 100%);
+                    padding: 25px;
+                    border-radius: 8px 8px 0 0;
+                }
+                .header h1 { 
+                    color: #1a365d; 
+                    font-size: 28pt;
+                    margin: 0 0 8px 0;
+                    font-weight: 700;
+                    letter-spacing: -0.5px;
+                }
+                .header .subtitle { 
+                    color: #2d3748; 
+                    font-size: 16pt;
+                    margin: 5px 0;
+                    font-weight: 500;
+                }
+                .header .meta { 
+                    font-size: 10pt; 
+                    color: #718096;
+                    margin-top: 12px;
+                    display: flex;
+                    justify-content: center;
+                    gap: 30px;
+                    flex-wrap: wrap;
+                }
+                .header .meta span {
+                    background: #edf2f7;
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                }
+                h2 { 
+                    color: #1a365d; 
+                    font-size: 16pt;
+                    border-bottom: 2px solid #3182ce;
+                    padding-bottom: 10px;
+                    margin-top: 35px;
+                    margin-bottom: 20px;
+                    font-weight: 600;
+                }
+                h3 { 
+                    color: #2d3748; 
+                    font-size: 13pt;
+                    margin-top: 25px;
+                    margin-bottom: 12px;
+                    font-weight: 600;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin: 15px 0;
+                    font-size: 10pt;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                th { 
+                    background: #1a365d; 
+                    color: white; 
+                    padding: 12px 15px;
+                    text-align: ${textAlign};
+                    font-weight: 600;
+                    font-size: 10pt;
+                }
+                td { 
+                    padding: 10px 15px; 
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                tr:nth-child(even) { background: #f8fafc; }
+                tr:hover { background: #edf2f7; }
+                .total-row {
+                    background: #1a365d !important;
+                    color: white;
+                    font-weight: 600;
+                }
+                .total-row td { border: none; }
+                .highlight-box { 
+                    background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%); 
+                    border-${isEnglish ? 'left' : 'right'}: 5px solid #3182ce;
+                    padding: 20px;
+                    margin: 20px 0;
+                    border-radius: 0 8px 8px 0;
+                }
+                .health-score {
+                    display: inline-block;
+                    font-size: 20pt;
+                    font-weight: 700;
+                    padding: 8px 20px;
+                    border-radius: 8px;
+                    margin-${isEnglish ? 'left' : 'right'}: 10px;
+                }
+                .health-excellent { background: #c6f6d5; color: #22543d; }
+                .health-good { background: #bee3f8; color: #2c5282; }
+                .health-fair { background: #fefcbf; color: #744210; }
+                .health-poor { background: #fed7d7; color: #742a2a; }
+                .metric-grid {
+                    display: grid;
+                    grid-template-columns: repeat(5, 1fr);
+                    gap: 15px;
+                    margin: 20px 0;
+                }
+                .metric-item {
+                    text-align: center;
+                    padding: 15px;
+                    background: #f7fafc;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                }
+                .metric-value { 
+                    font-size: 16pt; 
+                    font-weight: 700; 
+                    color: #1a365d;
+                    margin-bottom: 5px;
+                }
+                .metric-label { 
+                    font-size: 9pt; 
+                    color: #718096;
+                    font-weight: 500;
+                }
+                .status-excellent { color: #22543d; background: #c6f6d5; padding: 3px 10px; border-radius: 4px; }
+                .status-good { color: #2c5282; background: #bee3f8; padding: 3px 10px; border-radius: 4px; }
+                .status-warning { color: #744210; background: #fefcbf; padding: 3px 10px; border-radius: 4px; }
+                .status-critical { color: #742a2a; background: #fed7d7; padding: 3px 10px; border-radius: 4px; }
+                .compliance-box {
+                    background: #f0fff4;
+                    border: 2px solid #9ae6b4;
+                    padding: 20px;
+                    margin: 25px 0;
+                    border-radius: 8px;
+                }
+                .compliance-box h4 {
+                    color: #22543d;
+                    margin-top: 0;
+                }
+                .recommendation-list {
+                    counter-reset: rec-counter;
+                    list-style: none;
+                    padding: 0;
+                }
+                .recommendation-list li {
+                    counter-increment: rec-counter;
+                    padding: 12px 15px;
+                    margin: 8px 0;
+                    background: #f8fafc;
+                    border-radius: 6px;
+                    border-${isEnglish ? 'left' : 'right'}: 4px solid #3182ce;
+                    position: relative;
+                    padding-${isEnglish ? 'left' : 'right'}: 45px;
+                }
+                .recommendation-list li:before {
+                    content: counter(rec-counter);
+                    position: absolute;
+                    ${isEnglish ? 'left' : 'right'}: 12px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    background: #3182ce;
+                    color: white;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 11px;
+                }
+                .conclusion-box {
+                    background: #ebf8ff;
+                    padding: 15px 20px;
+                    border-radius: 6px;
+                    margin: 8px 0;
+                    border-${isEnglish ? 'left' : 'right'}: 3px solid #63b3ed;
+                }
+                .footer {
+                    margin-top: 50px;
+                    padding-top: 20px;
+                    border-top: 2px solid #e2e8f0;
+                    font-size: 9pt;
+                    color: #718096;
+                    text-align: center;
+                }
+                .footer p { margin: 5px 0; }
+                .print-btn {
+                    position: fixed;
+                    top: 20px;
+                    ${isEnglish ? 'right' : 'left'}: 20px;
+                    background: #3182ce;
+                    color: white;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 600;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                }
+                .print-btn:hover { background: #2c5282; }
+            </style>
+        </head>
+        <body>
+            <button class="print-btn no-print" onclick="window.print()">
+                ${isEnglish ? '🖨️ Print / Save as PDF' : '🖨️ طباعة / حفظ كـ PDF'}
+            </button>
+            
+            <div class="header">
+                <h1>${isEnglish ? 'Financial Analysis Report' : 'تقرير التحليل المالي'}</h1>
+                <div class="subtitle">${meta.company}</div>
+                <div class="meta">
+                    <span><strong>${isEnglish ? 'Period:' : 'الفترة:'}</strong> ${meta.period}</span>
+                    <span><strong>${isEnglish ? 'Date:' : 'التاريخ:'}</strong> ${meta.report_date}</span>
+                    <span><strong>${isEnglish ? 'Standards:' : 'المعايير:'}</strong> ${meta.standards}</span>
+                </div>
+            </div>
+            
+            <h2>1. ${isEnglish ? 'Executive Summary' : 'الملخص التنفيذي'}</h2>
+            <div class="highlight-box">
+                <strong>${isEnglish ? 'Financial Health Assessment:' : 'تقييم الصحة المالية:'}</strong>
+                <span class="health-score health-${summary.health_status.toLowerCase().replace(' ', '-')}">${summary.health_status}</span>
+                <span style="font-size: 14pt;">(${isEnglish ? 'Score:' : 'النتيجة:'} ${summary.health_score}/100)</span>
+            </div>
+            
+            <div class="metric-grid">
+                ${summary.key_metrics.map(m => `
+                    <div class="metric-item">
+                        <div class="metric-value">${m.formatted}</div>
+                        <div class="metric-label">${m.label}</div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <h2>2. ${isEnglish ? 'Financial Statements' : 'القوائم المالية'}</h2>
+            
+            <h3>2.1 ${isEnglish ? 'Statement of Financial Position (Balance Sheet)' : 'قائمة المركز المالي (الميزانية العمومية)'} - IAS 1</h3>
+            <table>
+                <tr><th colspan="2">${isEnglish ? 'ASSETS' : 'الأصول'}</th></tr>
+                <tr><td>${isEnglish ? 'Total Assets' : 'إجمالي الأصول'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'}; font-weight: 600;">${statements.balance_sheet.assets.formatted}</td></tr>
+                <tr><th colspan="2">${isEnglish ? 'LIABILITIES' : 'الالتزامات'}</th></tr>
+                <tr><td>${isEnglish ? 'Total Liabilities' : 'إجمالي الالتزامات'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'}; font-weight: 600;">${statements.balance_sheet.liabilities.formatted}</td></tr>
+                <tr><th colspan="2">${isEnglish ? 'EQUITY' : 'حقوق الملكية'}</th></tr>
+                <tr><td>${isEnglish ? 'Total Equity' : 'إجمالي حقوق الملكية'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'}; font-weight: 600;">${statements.balance_sheet.equity.formatted}</td></tr>
+                <tr class="total-row">
+                    <td><strong>${isEnglish ? 'Total Liabilities & Equity' : 'إجمالي الالتزامات وحقوق الملكية'}</strong></td>
+                    <td style="text-align: ${isEnglish ? 'right' : 'left'};"><strong>${statements.balance_sheet.assets.formatted}</strong></td>
+                </tr>
+            </table>
+            
+            <h3>2.2 ${isEnglish ? 'Statement of Profit or Loss (Income Statement)' : 'قائمة الدخل'} - IAS 1</h3>
+            <table>
+                <tr><td>${isEnglish ? 'Total Revenue' : 'إجمالي الإيرادات'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'}; color: #22543d; font-weight: 600;">${statements.income_statement.revenue.formatted}</td></tr>
+                <tr><td>${isEnglish ? 'Total Expenses' : 'إجمالي المصروفات'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'}; color: #742a2a;">(${statements.income_statement.expenses.formatted})</td></tr>
+                <tr class="total-row">
+                    <td><strong>${isEnglish ? 'Net Income' : 'صافي الدخل'}</strong></td>
+                    <td style="text-align: ${isEnglish ? 'right' : 'left'};"><strong>${statements.income_statement.net_income.formatted}</strong></td>
+                </tr>
+                <tr><td>${isEnglish ? 'Net Profit Margin' : 'هامش صافي الربح'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'};">${statements.income_statement.net_income.margin}</td></tr>
+            </table>
+            
+            <h3>2.3 ${isEnglish ? 'Statement of Cash Flows' : 'قائمة التدفقات النقدية'} - IAS 7</h3>
+            <table>
+                <tr><td>${isEnglish ? 'Cash from Operating Activities' : 'النقد من الأنشطة التشغيلية'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'};">${statements.cash_flow_statement.operating_activities.formatted}</td></tr>
+                <tr><td>${isEnglish ? 'Cash from Investing Activities' : 'النقد من الأنشطة الاستثمارية'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'};">${statements.cash_flow_statement.investing_activities.formatted}</td></tr>
+                <tr><td>${isEnglish ? 'Cash from Financing Activities' : 'النقد من الأنشطة التمويلية'}</td><td style="text-align: ${isEnglish ? 'right' : 'left'};">${statements.cash_flow_statement.financing_activities.formatted}</td></tr>
+                <tr class="total-row">
+                    <td><strong>${isEnglish ? 'Net Change in Cash' : 'صافي التغير في النقد'}</strong></td>
+                    <td style="text-align: ${isEnglish ? 'right' : 'left'};"><strong>${statements.cash_flow_statement.net_change.formatted}</strong></td>
+                </tr>
+            </table>
+            
+            <div class="page-break"></div>
+            
+            <h2>3. ${isEnglish ? 'Financial Analysis' : 'التحليل المالي'}</h2>
+            
+            <h3>3.1 ${isEnglish ? 'Liquidity Ratios' : 'نسب السيولة'}</h3>
+            <p style="color: #718096; font-style: italic;">${analysis.liquidity_ratios.description}</p>
+            <table>
+                <tr>
+                    <th>${isEnglish ? 'Ratio' : 'النسبة'}</th>
+                    <th>${isEnglish ? 'Value' : 'القيمة'}</th>
+                    <th>${isEnglish ? 'Benchmark' : 'المعيار'}</th>
+                    <th>${isEnglish ? 'Status' : 'الحالة'}</th>
+                </tr>
+                ${analysis.liquidity_ratios.ratios.map(r => `
+                    <tr>
+                        <td>${r.name}</td>
+                        <td style="font-weight: 600;">${r.formatted}</td>
+                        <td>${r.benchmark}</td>
+                        <td><span class="status-${r.status === 'Good' ? 'good' : r.status === 'Excellent' ? 'excellent' : r.status === 'Critical' ? 'critical' : 'warning'}">${r.status}</span></td>
+                    </tr>
+                `).join('')}
+            </table>
+            
+            <h3>3.2 ${isEnglish ? 'Profitability Ratios' : 'نسب الربحية'}</h3>
+            <p style="color: #718096; font-style: italic;">${analysis.profitability_ratios.description}</p>
+            <table>
+                <tr>
+                    <th>${isEnglish ? 'Ratio' : 'النسبة'}</th>
+                    <th>${isEnglish ? 'Value' : 'القيمة'}</th>
+                    <th>${isEnglish ? 'Benchmark' : 'المعيار'}</th>
+                    <th>${isEnglish ? 'Status' : 'الحالة'}</th>
+                </tr>
+                ${analysis.profitability_ratios.ratios.map(r => `
+                    <tr>
+                        <td>${r.name}</td>
+                        <td style="font-weight: 600;">${r.formatted}</td>
+                        <td>${r.benchmark}</td>
+                        <td><span class="status-${r.status === 'Good' ? 'good' : r.status === 'Excellent' ? 'excellent' : r.status === 'Low' ? 'critical' : 'warning'}">${r.status}</span></td>
+                    </tr>
+                `).join('')}
+            </table>
+            
+            <h3>3.3 ${isEnglish ? 'Solvency & Leverage Ratios' : 'نسب الملاءة والرافعة المالية'}</h3>
+            <p style="color: #718096; font-style: italic;">${analysis.solvency_ratios.description}</p>
+            <table>
+                <tr>
+                    <th>${isEnglish ? 'Ratio' : 'النسبة'}</th>
+                    <th>${isEnglish ? 'Value' : 'القيمة'}</th>
+                    <th>${isEnglish ? 'Benchmark' : 'المعيار'}</th>
+                    <th>${isEnglish ? 'Status' : 'الحالة'}</th>
+                </tr>
+                ${analysis.solvency_ratios.ratios.map(r => `
+                    <tr>
+                        <td>${r.name}</td>
+                        <td style="font-weight: 600;">${r.formatted}</td>
+                        <td>${r.benchmark}</td>
+                        <td><span class="status-${r.status === 'Good' || r.status === 'Safe' ? 'good' : r.status === 'Distress' ? 'critical' : 'warning'}">${r.status}</span></td>
+                    </tr>
+                `).join('')}
+            </table>
+            
+            <h3>3.4 ${isEnglish ? 'DuPont Analysis' : 'تحليل ديبونت'}</h3>
+            <p style="color: #718096; font-style: italic;">${analysis.dupont_analysis.description}</p>
+            <table>
+                <tr>
+                    <th>${isEnglish ? 'Component' : 'المكون'}</th>
+                    <th>${isEnglish ? 'Value' : 'القيمة'}</th>
+                    <th>${isEnglish ? 'Formula' : 'المعادلة'}</th>
+                </tr>
+                ${analysis.dupont_analysis.components.map(c => `
+                    <tr>
+                        <td>${c.name}</td>
+                        <td style="font-weight: 600;">${c.value}</td>
+                        <td style="font-style: italic; color: #718096;">${c.formula}</td>
+                    </tr>
+                `).join('')}
+            </table>
+            
+            <div class="page-break"></div>
+            
+            <h2>4. ${isEnglish ? 'IFRS Compliance Statement' : 'بيان التوافق مع المعايير الدولية'}</h2>
+            <div class="compliance-box">
+                <h4>${isEnglish ? 'Compliance Declaration' : 'إقرار المطابقة'}</h4>
+                <p>${isEnglish ? 
+                    `This financial report has been prepared in accordance with International Financial Reporting Standards (IFRS) as issued by the International Accounting Standards Board (IASB).` :
+                    `تم إعداد هذا التقرير المالي وفقاً لمعايير التقارير المالية الدولية (IFRS) الصادرة عن مجلس معايير المحاسبة الدولية (IASB).`}
+                </p>
+                <p><strong>${isEnglish ? 'Applicable Standards:' : 'المعايير المطبقة:'}</strong></p>
+                <ul>
+                    <li><strong>IAS 1</strong> - ${isEnglish ? 'Presentation of Financial Statements' : 'عرض القوائم المالية'}</li>
+                    <li><strong>IAS 7</strong> - ${isEnglish ? 'Statement of Cash Flows' : 'قائمة التدفقات النقدية'}</li>
+                </ul>
+                <p><strong>${isEnglish ? 'Reporting Period:' : 'فترة التقرير:'}</strong> ${meta.period}</p>
+            </div>
+            
+            <h2>5. ${isEnglish ? 'Conclusions & Strategic Recommendations' : 'الاستنتاجات والتوصيات الاستراتيجية'}</h2>
+            
+            <h3>${isEnglish ? 'Key Conclusions' : 'الاستنتاجات الرئيسية'}</h3>
+            ${recommendations.conclusions.map(c => `<div class="conclusion-box">✓ ${c}</div>`).join('')}
+            
+            <h3>${isEnglish ? 'Strategic Recommendations' : 'التوصيات الاستراتيجية'}</h3>
+            <ol class="recommendation-list">
+                ${recommendations.recommendations.map(r => `<li>${r}</li>`).join('')}
+            </ol>
+            
+            <div class="footer">
+                <p><strong>${isEnglish ? 'Report Generated by Financial Analysis System' : 'تم إنشاء التقرير بواسطة نظام التحليل المالي'}</strong></p>
+                <p>${isEnglish ? 'Report ID:' : 'رقم التقرير:'} ${meta.company}-${meta.period} | ${isEnglish ? 'Generated:' : 'تاريخ الإنشاء:'} ${meta.report_date}</p>
+                <p style="margin-top: 15px; font-size: 8pt;">
+                    <em>${isEnglish ? 
+                        'Disclaimer: This analysis is for informational purposes only and should not be considered as professional financial advice. Always consult with qualified financial professionals before making investment or business decisions.' :
+                        'إخلاء المسؤولية: هذا التحليل لأغراض إعلامية فقط ولا ينبغي اعتباره نصيحة مالية احترافية. استشر دائماً مختصين ماليين مؤهلين قبل اتخاذ قرارات استثمارية أو تجارية.'}</em>
+                </p>
+            </div>
+        </body>
+        </html>
+        `;
+    }
+    
+    function exportSimpleReport() {
+        // Generate simple PDF from HTML (original implementation)
         let htmlContent = `
             <html dir="rtl" style="direction: rtl;">
             <head>
