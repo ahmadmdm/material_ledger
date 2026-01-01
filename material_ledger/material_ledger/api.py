@@ -79,6 +79,29 @@ def get_ledger_entries(company, from_date, to_date, account=None, party_type=Non
 
     return data
 
+
+@frappe.whitelist()
+def generate_ledger_pdf(html):
+    """
+    Generate PDF from HTML content - Whitelisted for API access
+    """
+    from frappe.utils.pdf import get_pdf
+    import base64
+    
+    try:
+        pdf_content = get_pdf(html, {"orientation": "Landscape"})
+        return {
+            "success": True,
+            "pdf_base64": base64.b64encode(pdf_content).decode('utf-8')
+        }
+    except Exception as e:
+        frappe.log_error(f"PDF Generation Error: {str(e)}", "Material Ledger PDF")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 def get_opening_balance(company, account, from_date, party_type=None, party=None, cost_center=None, project=None):
     """
     Calculate opening balance for an account before the from_date

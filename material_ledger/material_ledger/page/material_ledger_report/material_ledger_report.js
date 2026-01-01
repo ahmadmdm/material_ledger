@@ -431,7 +431,23 @@ frappe.pages['material-ledger-report'].on_page_load = function(wrapper) {
 
     function setupActions() {
         page.set_primary_action(t('refresh'), fetchEntries, 'refresh');
-        page.add_action_icon('printer', () => exportToPDF(), t('print'));
+        page.add_action_icon('printer', () => printReport(), t('print'));
+    }
+
+    function printReport() {
+        // Quick print - opens in new window for immediate printing
+        if (!state.entries.length) {
+            frappe.msgprint(isRtl ? 'لا توجد بيانات للطباعة' : 'No data to print');
+            return;
+        }
+        
+        const html = buildPdfHtml();
+        const printWindow = window.open('', '_blank', 'width=1000,height=800');
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.onload = function() {
+            printWindow.print();
+        };
     }
 
     function openColumnDialog() {
@@ -677,29 +693,39 @@ frappe.pages['material-ledger-report'].on_page_load = function(wrapper) {
             return;
         }
 
+        frappe.show_progress(
+            isRtl ? 'جاري إنشاء PDF' : 'Generating PDF', 
+            30, 100, 
+            isRtl ? 'يرجى الانتظار...' : 'Please wait...'
+        );
+
         const html = buildPdfHtml();
 
         frappe.call({
-            method: 'frappe.utils.pdf.get_pdf',
-            args: { html },
+            method: 'material_ledger.material_ledger.api.generate_ledger_pdf',
+            args: { html: html },
             callback: (r) => {
-                if (!r.message) {
-                    frappe.msgprint(isRtl ? 'تعذر إنشاء ملف PDF' : 'Unable to generate PDF');
+                frappe.hide_progress();
+                
+                if (!r.message || !r.message.success) {
+                    frappe.msgprint(isRtl ? 'تعذر إنشاء ملف PDF: ' + (r.message?.error || '') : 'Unable to generate PDF: ' + (r.message?.error || ''));
                     return;
                 }
 
-                const blob = base64ToBlob(r.message, 'application/pdf');
+                const blob = base64ToBlob(r.message.pdf_base64, 'application/pdf');
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'General_Ledger_Report.pdf';
+                a.download = 'General_Ledger_Report_' + frappe.datetime.now_date() + '.pdf';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                frappe.show_alert({ message: '✅ PDF جاهز', indicator: 'green' });
+                frappe.show_alert({ message: '✅ ' + (isRtl ? 'تم تحميل PDF بنجاح' : 'PDF downloaded successfully'), indicator: 'green' });
             },
-            error: () => {
+            error: (err) => {
+                frappe.hide_progress();
+                console.error('PDF Error:', err);
                 frappe.msgprint(isRtl ? 'حدث خطأ أثناء إنشاء PDF' : 'Error while generating PDF');
             }
         });
