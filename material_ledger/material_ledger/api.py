@@ -3,6 +3,12 @@ from frappe import _
 from frappe.utils import flt, getdate, cint
 import requests
 import json
+from functools import wraps
+
+# Import services
+from material_ledger.material_ledger.services.validators import InputValidator, LedgerValidator, AnalysisValidator
+from material_ledger.material_ledger.services.financial_calculator import FinancialCalculator
+from material_ledger.material_ledger.services.ai_service import get_ai_service, generate_ai_report as ai_generate_report
 
 # Import security module
 try:
@@ -22,8 +28,37 @@ except ImportError:
         return decorator
 
 
+def get_settings():
+    """Get Material Ledger Settings"""
+    try:
+        from material_ledger.material_ledger.doctype.material_ledger_settings.material_ledger_settings import MaterialLedgerSettings
+        return MaterialLedgerSettings.get_settings()
+    except Exception:
+        return {
+            "enable_rate_limiting": True,
+            "rate_limit_requests": 50,
+            "rate_limit_window": 60,
+            "enable_caching": True,
+            "cache_timeout": 300
+        }
+
+
+def apply_rate_limit(func):
+    """Apply rate limiting if enabled in settings"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        settings = get_settings()
+        if settings.get("enable_rate_limiting") and SECURITY_ENABLED:
+            limit = settings.get("rate_limit_requests", 50)
+            window = settings.get("rate_limit_window", 60)
+            decorated = rate_limited(limit=limit, window=window, by="user")(func)
+            return decorated(*args, **kwargs)
+        return func(*args, **kwargs)
+    return wrapper
+
+
 @frappe.whitelist()
-@rate_limited(limit=50, window=60, by="user") if SECURITY_ENABLED else lambda f: f
+@apply_rate_limit
 def get_ledger_entries(company, from_date, to_date, account=None, party_type=None, party=None, cost_center=None, project=None):
     """
     Get General Ledger entries with filters
@@ -244,7 +279,7 @@ def get_cache_key(company, year, period, period_number, sections):
 
 
 @frappe.whitelist()
-@rate_limited(limit=30, window=60, by="user") if SECURITY_ENABLED else lambda f: f
+@apply_rate_limit
 def get_financial_analysis(company, year, period="annual", period_number=None, sections=None):
     """
     Advanced Financial Analysis - CFO Level with AI Insights
@@ -864,132 +899,11 @@ def detect_risk_flags(ratios, profit, income, assets, liabilities):
 @frappe.whitelist()
 def generate_ai_report(company, year, data):
     """
-    Generate AI-powered strategic financial report using DeepSeek Reasoning Model
-    Uses deepseek-reasoner for advanced analysis
+    Generate AI-powered strategic financial report
+    Uses the AI service with settings-based configuration
     """
-    # Parse data if it's a JSON string
-    if isinstance(data, str):
-        data = json.loads(data)
-    
-    api_key = frappe.conf.get("deepseek_api_key") or "sk-5e59f5662a1e4ffba7e8b741c35b6e0e"
-    
-    if not api_key:
-        return _("AI analysis not available. Please configure API key.")
-
-    # Extract comprehensive data
-    summary = data.get('summary', {})
-    ratios = data.get('ratios', {})
-    quarterly = data.get('quarterly', [])
-    monthly = data.get('monthly', [])
-    equity_changes = data.get('equity_changes', {})
-    cash_flow = data.get('cash_flow', {})
-    period = data.get('period', year)
-    
-    net_profit = data.get('net_profit', summary.get('profit', 0))
-    income = data.get('income', summary.get('income', 0))
-    expense = data.get('expense', summary.get('expense', 0))
-    assets = data.get('assets', summary.get('assets', 0))
-    liabilities = data.get('liabilities', summary.get('liabilities', 0))
-    equity = data.get('equity', summary.get('equity', 0))
-
-    # Build comprehensive prompt for reasoning model
-    prompt = f"""
-أنت محلل مالي خبير متخصص في تحليل القوائم المالية للشركات. قم بتحليل البيانات المالية التالية لشركة {company} للفترة {period}:
-
-📊 **قائمة الدخل (Income Statement)**
-- إجمالي الإيرادات: {frappe.format(income, {'fieldtype': 'Currency'})}
-- إجمالي المصروفات: {frappe.format(expense, {'fieldtype': 'Currency'})}
-- صافي الربح/الخسارة: {frappe.format(net_profit, {'fieldtype': 'Currency'})}
-- هامش الربح الصافي: {ratios.get('net_margin', 0):.2f}%
-- هامش التشغيل: {ratios.get('operating_margin', 0):.2f}%
-
-📈 **قائمة المركز المالي (Balance Sheet)**
-- إجمالي الأصول: {frappe.format(assets, {'fieldtype': 'Currency'})}
-- إجمالي الالتزامات: {frappe.format(liabilities, {'fieldtype': 'Currency'})}
-- حقوق الملكية: {frappe.format(equity, {'fieldtype': 'Currency'})}
-- نسبة الديون للأصول: {ratios.get('debt_ratio', 0):.2f}%
-
-💰 **قائمة التدفقات النقدية (Cash Flow Statement)**
-- التدفق النقدي التشغيلي: {frappe.format(cash_flow.get('operating', 0), {'fieldtype': 'Currency'})}
-- التدفق النقدي الاستثماري: {frappe.format(cash_flow.get('investing', 0), {'fieldtype': 'Currency'})}
-- التدفق النقدي التمويلي: {frappe.format(cash_flow.get('financing', 0), {'fieldtype': 'Currency'})}
-- صافي التدفق النقدي: {frappe.format(cash_flow.get('net', 0), {'fieldtype': 'Currency'})}
-
-📋 **قائمة التغيرات في حقوق الملكية**
-- الرصيد الافتتاحي: {frappe.format(equity_changes.get('opening_balance', 0), {'fieldtype': 'Currency'})}
-- صافي الربح: {frappe.format(equity_changes.get('net_profit', 0), {'fieldtype': 'Currency'})}
-- الإضافات الرأسمالية: {frappe.format(equity_changes.get('contributions', 0), {'fieldtype': 'Currency'})}
-- التوزيعات: {frappe.format(equity_changes.get('dividends', 0), {'fieldtype': 'Currency'})}
-- الرصيد الختامي: {frappe.format(equity_changes.get('closing_balance', 0), {'fieldtype': 'Currency'})}
-
-📊 **النسب المالية الرئيسية**
-- العائد على حقوق الملكية (ROE): {ratios.get('roe', 0):.2f}%
-- العائد على الأصول (ROA): {ratios.get('roa', 0):.2f}%
-- النسبة الجارية: {ratios.get('current_ratio', 0):.2f}
-- نسبة السيولة السريعة: {ratios.get('quick_ratio', 0):.2f}
-- معدل دوران الأصول: {ratios.get('asset_turnover', 0):.2f}
-- مضاعف حقوق الملكية: {ratios.get('leverage', 0):.2f}
-- Z-Score: {ratios.get('z_score', 0):.2f} {"(آمن)" if ratios.get('z_score', 0) > 2.9 else "(منطقة رمادية)" if ratios.get('z_score', 0) > 1.8 else "(خطر إفلاس)"}
-
-📅 **التحليل الدوري**
-{f"البيانات الشهرية: {len(monthly)} شهر" if monthly else ""}
-{f"البيانات الربعية: {len(quarterly)} ربع" if quarterly else ""}
-
-قم بإجراء تحليل شامل ومفصل يتضمن:
-
-1. **تحليل قائمة الدخل**: قم بتحليل الربحية، هامش الأرباح، كفاءة التكاليف، ومصادر الإيرادات
-2. **تحليل المركز المالي**: حلل السيولة، هيكل رأس المال، القدرة على الوفاء بالالتزامات، والكفاءة في استخدام الأصول
-3. **تحليل التدفقات النقدية**: قيّم قدرة الشركة على توليد النقد، الاستثمارات، والتمويل
-4. **تحليل التغيرات في حقوق الملكية**: راجع التغيرات الرأسمالية وسياسة التوزيعات
-5. **النقاط القوة والضعف**: حدد 3-5 نقاط قوة و3-5 نقاط ضعف
-6. **المخاطر المالية**: حدد المخاطر الحالية والمستقبلية
-7. **التوصيات الاستراتيجية**: قدم 5-7 توصيات عملية قابلة للتنفيذ لتحسين الأداء المالي
-8. **التوقعات المستقبلية**: قدم رؤية للاتجاهات المستقبلية المتوقعة
-
-يجب أن يكون التحليل:
-- دقيق ومبني على الأرقام
-- شامل لجميع جوانب الأداء المالي
-- مكتوب بلغة عربية احترافية
-- يحتوي على أمثلة وأرقام محددة
-- طوله 500-700 كلمة
-
-استخدم تفكيرك العميق (reasoning) لتقديم رؤى ثاقبة وتحليل متعمق.
-"""
-
-    try:
-        # Use deepseek-reasoner model for advanced analysis
-        response = requests.post(
-            "https://api.deepseek.com/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-reasoner",  # Using reasoning model for detailed analysis
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.2,  # Lower temperature for more precise analysis
-                "max_tokens": 4000  # More tokens for comprehensive analysis
-            },
-            timeout=180  # Longer timeout for reasoning model
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            # Reasoning model returns both reasoning_content and content
-            reasoning = result['choices'][0]['message'].get('reasoning_content', '')
-            analysis = result['choices'][0]['message']['content']
-            
-            # Combine reasoning with final analysis
-            if reasoning:
-                return f"**التحليل المتعمق:**\n\n{analysis}\n\n---\n*تم إنشاء هذا التحليل باستخدام نموذج التفكير المتقدم من DeepSeek*"
-            return analysis
-        else:
-            frappe.log_error(f"DeepSeek API Error: {response.text}", "Financial Analysis AI")
-            return _("AI analysis temporarily unavailable. Please try again later.")
-    
-    except Exception as e:
-        frappe.log_error(f"AI Report Generation Error: {str(e)}", "Financial Analysis")
-        return _("التحليل الاستراتيجي متاح في النسخة الاحترافية.")
+    # Use the new AI service
+    return ai_generate_report(company, year, data)
 
 
 @frappe.whitelist()

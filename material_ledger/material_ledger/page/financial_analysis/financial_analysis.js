@@ -585,6 +585,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             
             if (data) {
                 console.log('📊 Financial Data loaded in ' + loadTime + 's:', data);
+                console.log('🤖 AI Report in response:', !!data.ai_report, 'Length:', data.ai_report?.length || 0);
                 state.data = data;
                 // Cache for offline use
                 localCache.set(state.filters.company, state.filters.year, state.filters.period, data);
@@ -1229,9 +1230,14 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     }
 
     function renderAIAnalysis() {
+        console.log('🤖 renderAIAnalysis called');
+        console.log('🤖 state.data:', state.data);
+        console.log('🤖 state.data?.ai_report:', state.data?.ai_report);
+        
         const aiReport = state.data?.ai_report;
         
         if (!aiReport) {
+            console.log('🤖 AI Report is empty or null');
             let html = `
                 <div class="fade-in" style="background: white; border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 50px; text-align: center;">
                     <div style="width: 100px; height: 100px; margin: 0 auto 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">

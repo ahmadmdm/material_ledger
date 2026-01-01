@@ -1,0 +1,216 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "creation": "2025-01-01 00:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "ai_settings_section",
+        "enable_ai_analysis",
+        "ai_provider",
+        "column_break_ai",
+        "deepseek_api_key",
+        "openai_api_key",
+        "ai_model",
+        "security_section",
+        "enable_rate_limiting",
+        "rate_limit_requests",
+        "rate_limit_window",
+        "column_break_security",
+        "enable_audit_logging",
+        "audit_retention_days",
+        "cache_section",
+        "enable_caching",
+        "cache_timeout",
+        "column_break_cache",
+        "auto_refresh_interval",
+        "display_section",
+        "default_currency_format",
+        "decimal_places",
+        "column_break_display",
+        "date_format",
+        "default_company"
+    ],
+    "fields": [
+        {
+            "fieldname": "ai_settings_section",
+            "fieldtype": "Section Break",
+            "label": "AI Settings / إعدادات الذكاء الاصطناعي"
+        },
+        {
+            "default": "1",
+            "fieldname": "enable_ai_analysis",
+            "fieldtype": "Check",
+            "label": "Enable AI Analysis / تفعيل تحليل AI"
+        },
+        {
+            "default": "DeepSeek",
+            "fieldname": "ai_provider",
+            "fieldtype": "Select",
+            "label": "AI Provider / مزود الذكاء الاصطناعي",
+            "options": "DeepSeek\nOpenAI\nLocal"
+        },
+        {
+            "fieldname": "column_break_ai",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "deepseek_api_key",
+            "fieldtype": "Password",
+            "label": "DeepSeek API Key / مفتاح DeepSeek",
+            "depends_on": "eval:doc.ai_provider=='DeepSeek'"
+        },
+        {
+            "fieldname": "openai_api_key",
+            "fieldtype": "Password",
+            "label": "OpenAI API Key / مفتاح OpenAI",
+            "depends_on": "eval:doc.ai_provider=='OpenAI'"
+        },
+        {
+            "default": "deepseek-reasoner",
+            "fieldname": "ai_model",
+            "fieldtype": "Data",
+            "label": "AI Model / نموذج AI"
+        },
+        {
+            "fieldname": "security_section",
+            "fieldtype": "Section Break",
+            "label": "Security Settings / إعدادات الأمان"
+        },
+        {
+            "default": "1",
+            "fieldname": "enable_rate_limiting",
+            "fieldtype": "Check",
+            "label": "Enable Rate Limiting / تفعيل حد الطلبات"
+        },
+        {
+            "default": "50",
+            "fieldname": "rate_limit_requests",
+            "fieldtype": "Int",
+            "label": "Max Requests / الحد الأقصى للطلبات",
+            "depends_on": "enable_rate_limiting"
+        },
+        {
+            "default": "60",
+            "fieldname": "rate_limit_window",
+            "fieldtype": "Int",
+            "label": "Time Window (seconds) / نافذة الوقت (ثواني)",
+            "depends_on": "enable_rate_limiting"
+        },
+        {
+            "fieldname": "column_break_security",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "1",
+            "fieldname": "enable_audit_logging",
+            "fieldtype": "Check",
+            "label": "Enable Audit Logging / تفعيل سجل المراجعة"
+        },
+        {
+            "default": "90",
+            "fieldname": "audit_retention_days",
+            "fieldtype": "Int",
+            "label": "Audit Retention Days / أيام الاحتفاظ بالسجل",
+            "depends_on": "enable_audit_logging"
+        },
+        {
+            "fieldname": "cache_section",
+            "fieldtype": "Section Break",
+            "label": "Cache Settings / إعدادات التخزين المؤقت"
+        },
+        {
+            "default": "1",
+            "fieldname": "enable_caching",
+            "fieldtype": "Check",
+            "label": "Enable Caching / تفعيل التخزين المؤقت"
+        },
+        {
+            "default": "300",
+            "fieldname": "cache_timeout",
+            "fieldtype": "Int",
+            "label": "Cache Timeout (seconds) / مدة التخزين المؤقت",
+            "depends_on": "enable_caching"
+        },
+        {
+            "fieldname": "column_break_cache",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "0",
+            "fieldname": "auto_refresh_interval",
+            "fieldtype": "Int",
+            "label": "Auto Refresh Interval (seconds) / فترة التحديث التلقائي",
+            "description": "0 = disabled / 0 = معطل"
+        },
+        {
+            "fieldname": "display_section",
+            "fieldtype": "Section Break",
+            "label": "Display Settings / إعدادات العرض"
+        },
+        {
+            "default": "SAR",
+            "fieldname": "default_currency_format",
+            "fieldtype": "Link",
+            "label": "Default Currency / العملة الافتراضية",
+            "options": "Currency"
+        },
+        {
+            "default": "2",
+            "fieldname": "decimal_places",
+            "fieldtype": "Int",
+            "label": "Decimal Places / الخانات العشرية"
+        },
+        {
+            "fieldname": "column_break_display",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "dd-mm-yyyy",
+            "fieldname": "date_format",
+            "fieldtype": "Select",
+            "label": "Date Format / تنسيق التاريخ",
+            "options": "dd-mm-yyyy\nmm-dd-yyyy\nyyyy-mm-dd"
+        },
+        {
+            "fieldname": "default_company",
+            "fieldtype": "Link",
+            "label": "Default Company / الشركة الافتراضية",
+            "options": "Company"
+        }
+    ],
+    "index_web_pages_for_search": 0,
+    "issingle": 1,
+    "links": [],
+    "modified": "2025-01-01 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Material Ledger",
+    "name": "Material Ledger Settings",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 0,
+            "email": 0,
+            "print": 0,
+            "read": 1,
+            "role": "System Manager",
+            "share": 0,
+            "write": 1
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 0,
+            "print": 0,
+            "read": 1,
+            "role": "Accounts Manager",
+            "share": 0,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

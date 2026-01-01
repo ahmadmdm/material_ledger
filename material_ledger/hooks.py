@@ -1,10 +1,10 @@
 app_name = "material_ledger"
 app_title = "Material Ledger"
-app_publisher = "Trae"
-app_description = "Professional General Ledger & Financial Analysis System"
-app_email = "trae@example.com"
+app_publisher = "Ahmad"
+app_description = "Professional General Ledger & Financial Analysis System with AI Insights"
+app_email = "ahmad@example.com"
 app_license = "mit"
-app_version = "2.0.0"
+app_version = "2.1.0"
 
 # Apps
 # ------------------
@@ -12,15 +12,14 @@ app_version = "2.0.0"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "material_ledger",
-# 		"logo": "/assets/material_ledger/logo.png",
-# 		"title": "Material Ledger",
-# 		"route": "/material_ledger",
-# 		"has_permission": "material_ledger.api.permission.has_app_permission"
-# 	}
-# ]
+add_to_apps_screen = [
+    {
+        "name": "material_ledger",
+        "logo": "/assets/material_ledger/images/logo.png",
+        "title": "Material Ledger",
+        "route": "/app/executive-dashboard"
+    }
+]
 
 # Includes in <head>
 # ------------------

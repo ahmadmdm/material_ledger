@@ -1,16 +1,26 @@
 {
  "charts": [],
- "content": "[{\"type\": \"header\", \"data\": {\"text\": \"ahmadProg\", \"level\": 2}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Ledger\", \"link_to\": \"material-ledger-report\", \"doc_view\": \"\", \"color\": \"Blue\"}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Financial Analysis\", \"link_to\": \"financial-analysis\", \"doc_view\": \"\", \"color\": \"Green\"}}]",
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"Material Ledger - Professional Edition\", \"level\": 2}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Executive Dashboard\", \"link_to\": \"executive-dashboard\", \"doc_view\": \"\", \"color\": \"Purple\"}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Ledger\", \"link_to\": \"material-ledger-report\", \"doc_view\": \"\", \"color\": \"Blue\"}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Financial Analysis\", \"link_to\": \"financial-analysis\", \"doc_view\": \"\", \"color\": \"Green\"}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Settings\", \"link_to\": \"Material Ledger Settings\", \"doc_view\": \"\", \"color\": \"Grey\"}}]",
  "creation": "2025-12-28 11:05:38.297486",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
  "hide_custom": 0,
- "icon": "trending-up",
+ "icon": "stock",
  "idx": 0,
  "is_hidden": 0,
- "label": "ahmadProg",
+ "label": "Material Ledger",
  "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Executive Dashboard",
+   "link_count": 0,
+   "link_to": "executive-dashboard",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
   {
    "hidden": 0,
    "is_query_report": 0,
@@ -30,12 +40,22 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 0,
+   "link_to": "Material Ledger Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-01-01 12:01:35.218565",
  "modified_by": "Administrator",
  "module": "Material Ledger",
- "name": "ahmadProg",
+ "name": "Material Ledger",
  "number_cards": [],
  "owner": "Administrator",
  "public": 1,
@@ -43,6 +63,13 @@
  "roles": [],
  "sequence_id": 0.0,
  "shortcuts": [
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Executive Dashboard",
+   "link_to": "executive-dashboard",
+   "type": "Page"
+  },
   {
    "color": "Blue",
    "doc_view": "",
@@ -56,7 +83,14 @@
    "label": "Financial Analysis",
    "link_to": "financial-analysis",
    "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Settings",
+   "link_to": "Material Ledger Settings",
+   "type": "DocType"
   }
  ],
- "title": "ahmadProg"
+ "title": "Material Ledger"
 }

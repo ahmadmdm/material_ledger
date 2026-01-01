@@ -1,35 +1,54 @@
 /* Material Ledger - Global Professional Styles */
-/* Following Frappe UI Design System */
+/* Following Frappe UI Design System - v2.1.0 */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-    --ml-primary: #2490ef;
-    --ml-success: #28a745;
-    --ml-warning: #fd7e14;
-    --ml-danger: #d32f2f;
-    --ml-info: #17a2b8;
-    --ml-purple: #6f42c1;
+    --ml-primary: #667eea;
+    --ml-primary-dark: #764ba2;
+    --ml-success: #10b981;
+    --ml-warning: #f59e0b;
+    --ml-danger: #ef4444;
+    --ml-info: #3b82f6;
+    --ml-purple: #8b5cf6;
+    --ml-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --ml-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    --ml-shadow-hover: 0 10px 40px rgba(0,0,0,0.15);
+    --ml-radius: 12px;
+    --ml-radius-lg: 16px;
+}
+
+/* Global Font */
+body, .page-content, .frappe-control {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
 /* Frappe Card Enhancements */
 .frappe-card {
-    border-radius: 8px;
+    border-radius: var(--ml-radius);
     border: 1px solid var(--border-color);
     background: white;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--ml-shadow);
     margin-bottom: 20px;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.frappe-card:hover {
+    box-shadow: var(--ml-shadow-hover);
 }
 
 .frappe-card-head {
     padding: 15px 20px;
     border-bottom: 1px solid var(--border-color);
-    background-color: var(--bg-light-gray);
+    background: var(--ml-gradient);
+    color: white;
 }
 
 .frappe-card-title {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-color);
+    color: white;
     margin: 0;
 }
 
@@ -45,7 +64,8 @@
 }
 
 .statement-table thead th {
-    background-color: var(--table-header-bg);
+    background: var(--ml-gradient);
+    color: white;
     padding: 12px;
     font-weight: 600;
     text-align: left;
