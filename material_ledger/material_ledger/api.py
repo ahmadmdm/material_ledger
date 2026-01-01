@@ -4,7 +4,26 @@ from frappe.utils import flt, getdate, cint
 import requests
 import json
 
+# Import security module
+try:
+    from material_ledger.material_ledger.security import rate_limited, audit_logged, audit_logger
+    SECURITY_ENABLED = True
+except ImportError:
+    SECURITY_ENABLED = False
+    # Fallback decorators if security module not available
+    def rate_limited(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    
+    def audit_logged(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
+
 @frappe.whitelist()
+@rate_limited(limit=50, window=60, by="user") if SECURITY_ENABLED else lambda f: f
 def get_ledger_entries(company, from_date, to_date, account=None, party_type=None, party=None, cost_center=None, project=None):
     """
     Get General Ledger entries with filters
@@ -225,6 +244,7 @@ def get_cache_key(company, year, period, period_number, sections):
 
 
 @frappe.whitelist()
+@rate_limited(limit=30, window=60, by="user") if SECURITY_ENABLED else lambda f: f
 def get_financial_analysis(company, year, period="annual", period_number=None, sections=None):
     """
     Advanced Financial Analysis - CFO Level with AI Insights
@@ -266,14 +286,31 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
     def need(section_name):
         return fetch_all or section_name in requested_sections
 
+    # Helper to extract quarter number from various formats (Q1, 1, "Q1", etc.)
+    def parse_quarter(val):
+        if not val:
+            return None
+        val_str = str(val).strip().upper()
+        if val_str.startswith('Q'):
+            val_str = val_str[1:]
+        try:
+            q = int(val_str)
+            return q if 1 <= q <= 4 else None
+        except (ValueError, TypeError):
+            return None
+
     # Determine date range based on period
     if period == "monthly" and period_number:
         month = cint(period_number)
+        if month < 1 or month > 12:
+            month = 1  # Default to January if invalid
         start_date = f"{year}-{month:02d}-01"
         end_date = frappe.utils.get_last_day(start_date)
         period_label = frappe.utils.formatdate(start_date, "MMM YYYY")
     elif period == "quarterly" and period_number:
-        quarter = cint(period_number)
+        quarter = parse_quarter(period_number)
+        if not quarter:
+            quarter = 1  # Default to Q1 if invalid
         start_month = (quarter - 1) * 3 + 1
         start_date = f"{year}-{start_month:02d}-01"
         end_month = start_month + 2

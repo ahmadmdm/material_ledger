@@ -441,34 +441,21 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     }
 
     function fetchCompanies() {
-        // Use frappe.xcall for faster async call
-        frappe.xcall('frappe.client.get_list', {
-            doctype: 'Company', 
-            fields: ['name'],
-            limit_page_length: 1,
-            order_by: 'creation desc'
-        }).then((companies) => {
-            if (companies && companies.length) {
-                state.filters.company = companies[0].name;
-                page.fields_dict.company.set_value(state.filters.company);
-                $('#hero-company-name').text(state.filters.company);
-                $('#hero-year').text(state.filters.year);
-                
-                // Set default quarter based on current date
-                const currentMonth = new Date().getMonth() + 1;
-                const currentQuarter = Math.ceil(currentMonth / 3);
-                state.filters.period_number = 'Q' + currentQuarter;
-                
-                // Fetch data immediately
-                fetchAnalysis();
-            }
-        }).catch((err) => {
-            console.error('Error fetching companies:', err);
-            frappe.show_alert({ 
-                message: isRtl ? 'خطأ في جلب الشركات' : 'Error fetching companies', 
-                indicator: 'red' 
-            });
-        });
+        // Don't auto-select company - let user choose
+        // Just initialize the UI with placeholder text
+        $('#hero-company-name').text(isRtl ? 'اختر الشركة' : 'Select Company');
+        $('#hero-year').text(state.filters.year);
+        
+        // Set default quarter based on current date
+        const currentMonth = new Date().getMonth() + 1;
+        const currentQuarter = Math.ceil(currentMonth / 3);
+        state.filters.period_number = 'Q' + currentQuarter;
+        
+        // Show instruction to user
+        frappe.show_alert({ 
+            message: isRtl ? 'الرجاء اختيار الشركة للبدء بالتحليل' : 'Please select a company to start analysis', 
+            indicator: 'blue' 
+        }, 5);
     }
 
     // API call with retry logic and offline handling
@@ -1246,58 +1233,235 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
         
         if (!aiReport) {
             let html = `
-                <div class="fade-in" style="background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 40px; text-align: center;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
-                    <h3 style="font-size: 18px; color: #6b7280; margin: 0;">لا يوجد تحليل AI متاح</h3>
-                    <p style="color: #9ca3af; margin-top: 10px;">قم بتشغيل التحليل للحصول على رؤى AI مفصلة</p>
+                <div class="fade-in" style="background: white; border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 50px; text-align: center;">
+                    <div style="width: 100px; height: 100px; margin: 0 auto 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 48px;">🤖</span>
+                    </div>
+                    <h3 style="font-size: 22px; color: #1f2937; margin: 0 0 12px; font-weight: 800;">${isRtl ? 'لا يوجد تحليل AI متاح' : 'No AI Analysis Available'}</h3>
+                    <p style="color: #6b7280; margin: 0; font-size: 15px;">${isRtl ? 'قم بتشغيل التحليل للحصول على رؤى AI مفصلة' : 'Run analysis to get detailed AI insights'}</p>
                 </div>
             `;
             $('#ai-tab').html(html);
             return;
         }
         
+        // Parse and format AI report professionally
+        const formattedContent = formatAIReport(aiReport);
+        
         let html = `
-            <div class="fade-in" style="background: white; border-radius: 14px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); overflow: hidden;">
-                <div style="padding: 24px 28px; border-bottom: 1px solid #e5e7eb; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">🤖 ${t('ai_analysis')} - DeepSeek Reasoner</h3>
+            <div class="fade-in" style="background: white; border-radius: 16px; box-shadow: 0 4px 30px rgba(0,0,0,0.10); overflow: hidden;">
+                <!-- Header -->
+                <div style="padding: 28px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -50%; right: -10%; width: 300px; height: 300px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                    <div style="position: absolute; bottom: -60%; left: -5%; width: 200px; height: 200px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+                    <div style="position: relative; z-index: 1;">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 8px;">
+                            <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 28px;">🤖</span>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff;">${t('ai_analysis')}</h3>
+                                <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.8);">DeepSeek Reasoner • ${isRtl ? 'تحليل متقدم بالذكاء الاصطناعي' : 'Advanced AI-Powered Analysis'}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div style="padding: 28px; line-height: 1.9; font-size: 15px; color: #374151;">
-        `;
-        
-        // Format AI report with proper styling
-        const lines = aiReport.split('\n');
-        let inSection = false;
-        
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line) {
-                html += '<br>';
-                return;
-            }
-            
-            // Section headers (bold lines or numbered sections)
-            if (line.match(/^[#\*]+\s+(.+)/) || line.match(/^\d+[\.\)]\s+(.+)/) || line.match(/^[أ-ي]+[\.\)]\s+(.+)/)) {
-                html += `<h4 style="font-size: 17px; font-weight: 800; color: #667eea; margin-top: 25px; margin-bottom: 15px; border-right: 4px solid #667eea; padding-right: 12px;">${line}</h4>`;
-                inSection = true;
-            }
-            // Bullet points
-            else if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
-                html += `<div style="margin: 8px 0; padding-right: 20px; position: relative;">
-                    <span style="position: absolute; right: 0; color: #667eea; font-weight: 900;">•</span>
-                    ${line.substring(1).trim()}
-                </div>`;
-            }
-            // Regular paragraphs
-            else {
-                html += `<p style="margin: 12px 0;">${line}</p>`;
-            }
-        });
-        
-        html += `
+                
+                <!-- Content -->
+                <div style="padding: 32px;">
+                    ${formattedContent}
+                </div>
+                
+                <!-- Footer -->
+                <div style="padding: 20px 32px; background: #f8fafc; border-top: 1px solid #e5e7eb;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 13px;">
+                            <i class="fa fa-info-circle"></i>
+                            <span>${isRtl ? 'هذا التحليل تم إنشاؤه بواسطة الذكاء الاصطناعي للأغراض الإرشادية فقط' : 'This analysis is AI-generated for guidance purposes only'}</span>
+                        </div>
+                        <button onclick="copyAIReport()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa fa-copy"></i> ${isRtl ? 'نسخ التقرير' : 'Copy Report'}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         $('#ai-tab').html(html);
+        
+        // Store report for copy function
+        window._aiReportText = aiReport;
+    }
+    
+    // Copy AI report to clipboard
+    window.copyAIReport = function() {
+        if (window._aiReportText) {
+            navigator.clipboard.writeText(window._aiReportText).then(() => {
+                frappe.show_alert({
+                    message: isRtl ? '✅ تم نسخ التقرير' : '✅ Report copied',
+                    indicator: 'green'
+                });
+            });
+        }
+    };
+    
+    // Format AI Report with professional styling
+    function formatAIReport(report) {
+        if (!report) return '';
+        
+        const lines = report.split('\n');
+        let html = '';
+        let currentSection = null;
+        let inList = false;
+        let listItems = [];
+        
+        const sectionIcons = {
+            'ملخص': 'fa-file-text-o',
+            'summary': 'fa-file-text-o',
+            'نقاط القوة': 'fa-thumbs-up',
+            'strengths': 'fa-thumbs-up',
+            'نقاط الضعف': 'fa-thumbs-down',
+            'weaknesses': 'fa-thumbs-down',
+            'الفرص': 'fa-lightbulb-o',
+            'opportunities': 'fa-lightbulb-o',
+            'المخاطر': 'fa-exclamation-triangle',
+            'risks': 'fa-exclamation-triangle',
+            'التوصيات': 'fa-check-circle',
+            'recommendations': 'fa-check-circle',
+            'التحليل': 'fa-bar-chart',
+            'analysis': 'fa-bar-chart',
+            'الأداء': 'fa-line-chart',
+            'performance': 'fa-line-chart',
+            'النسب': 'fa-percent',
+            'ratios': 'fa-percent',
+            'السيولة': 'fa-tint',
+            'liquidity': 'fa-tint',
+            'الربحية': 'fa-money',
+            'profitability': 'fa-money',
+            'default': 'fa-bookmark'
+        };
+        
+        const getSectionIcon = (text) => {
+            const lowerText = text.toLowerCase();
+            for (let key in sectionIcons) {
+                if (lowerText.includes(key)) {
+                    return sectionIcons[key];
+                }
+            }
+            return sectionIcons['default'];
+        };
+        
+        const flushList = () => {
+            if (listItems.length > 0) {
+                html += `<div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 15px 0;">`;
+                listItems.forEach((item, idx) => {
+                    const isPositive = item.includes('✓') || item.includes('إيجابي') || item.includes('جيد') || item.includes('ممتاز') || item.includes('positive') || item.includes('good');
+                    const isNegative = item.includes('✗') || item.includes('سلبي') || item.includes('ضعيف') || item.includes('خطر') || item.includes('negative') || item.includes('risk');
+                    const dotColor = isPositive ? '#10b981' : isNegative ? '#ef4444' : '#667eea';
+                    
+                    html += `
+                        <div style="display: flex; gap: 12px; padding: 12px 0; ${idx < listItems.length - 1 ? 'border-bottom: 1px solid #e5e7eb;' : ''}">
+                            <div style="min-width: 8px; height: 8px; background: ${dotColor}; border-radius: 50%; margin-top: 8px;"></div>
+                            <div style="flex: 1; color: #374151; font-size: 14px; line-height: 1.7;">${item}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                listItems = [];
+            }
+            inList = false;
+        };
+        
+        lines.forEach((line, index) => {
+            line = line.trim();
+            if (!line) {
+                flushList();
+                return;
+            }
+            
+            // Main headers (## or ** or numbered like 1. or Arabic)
+            const mainHeaderMatch = line.match(/^(#{1,2}|\*\*)\s*(.+?)(\*\*)?$/) || 
+                                    line.match(/^(\d+)[\.\)]\s*(.+)$/) ||
+                                    line.match(/^([أ-ي])[\.\)]\s*(.+)$/);
+            
+            if (mainHeaderMatch || (line.length < 60 && !line.startsWith('-') && !line.startsWith('•') && !line.startsWith('*') && line.endsWith(':'))) {
+                flushList();
+                const headerText = mainHeaderMatch ? (mainHeaderMatch[2] || mainHeaderMatch[0]) : line.replace(':', '');
+                const icon = getSectionIcon(headerText);
+                
+                html += `
+                    <div style="margin-top: ${index === 0 ? '0' : '30px'}; margin-bottom: 18px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fa ${icon}" style="color: #667eea; font-size: 16px;"></i>
+                            </div>
+                            <h4 style="margin: 0; font-size: 18px; font-weight: 700; color: #1f2937;">${headerText.replace(/[\*#]/g, '').trim()}</h4>
+                        </div>
+                    </div>
+                `;
+                currentSection = headerText;
+            }
+            // Sub headers (### or single *)
+            else if (line.match(/^#{3,}\s*(.+)/) || (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**'))) {
+                flushList();
+                const subHeaderText = line.replace(/[#\*]/g, '').trim();
+                html += `
+                    <h5 style="margin: 20px 0 12px; font-size: 15px; font-weight: 600; color: #4b5563; padding-${isRtl ? 'right' : 'left'}: 52px;">${subHeaderText}</h5>
+                `;
+            }
+            // Bullet points
+            else if (line.startsWith('-') || line.startsWith('•') || line.startsWith('*')) {
+                inList = true;
+                const itemText = line.replace(/^[-•\*]\s*/, '').trim();
+                listItems.push(itemText);
+            }
+            // Numbered sub-items
+            else if (line.match(/^\d+\.\d+[\.\)]\s*.+/) || line.match(/^[a-z][\.\)]\s*.+/i)) {
+                inList = true;
+                listItems.push(line);
+            }
+            // Key-value pairs (like "ROE: 15%")
+            else if (line.includes(':') && line.split(':')[0].length < 30) {
+                flushList();
+                const [key, ...valueParts] = line.split(':');
+                const value = valueParts.join(':').trim();
+                
+                // Check if it's a metric
+                const isMetric = /[\d%٪]/.test(value);
+                
+                if (isMetric) {
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; margin: 8px 0; background: #f8fafc; border-radius: 8px; margin-${isRtl ? 'right' : 'left'}: 52px;">
+                            <span style="color: #6b7280; font-size: 14px; font-weight: 500;">${key.trim()}</span>
+                            <span style="color: #1f2937; font-size: 15px; font-weight: 700; font-family: 'SF Mono', monospace;">${value}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <p style="margin: 12px 0; padding-${isRtl ? 'right' : 'left'}: 52px; color: #374151; font-size: 14px; line-height: 1.8;">
+                            <strong style="color: #1f2937;">${key.trim()}:</strong> ${value}
+                        </p>
+                    `;
+                }
+            }
+            // Regular paragraphs
+            else {
+                flushList();
+                // Highlight important numbers
+                let formattedLine = line.replace(/(\d+[\d,\.]*%?)/g, '<span style="color: #667eea; font-weight: 600;">$1</span>');
+                // Highlight positive/negative words
+                formattedLine = formattedLine.replace(/(إيجابي|جيد|ممتاز|ارتفاع|نمو|positive|good|excellent|growth|increase)/gi, '<span style="color: #10b981; font-weight: 600;">$1</span>');
+                formattedLine = formattedLine.replace(/(سلبي|ضعيف|انخفاض|خطر|negative|poor|weak|decrease|risk)/gi, '<span style="color: #ef4444; font-weight: 600;">$1</span>');
+                
+                html += `
+                    <p style="margin: 14px 0; padding-${isRtl ? 'right' : 'left'}: 52px; color: #374151; font-size: 14px; line-height: 1.9;">${formattedLine}</p>
+                `;
+            }
+        });
+        
+        // Flush remaining list items
+        flushList();
+        
+        return html;
     }
 
     // ==================== EXPORT FUNCTIONS ====================
@@ -1341,37 +1505,39 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     }
     
     function exportIfrsReport(isEnglish = true) {
+        if (!state.data) {
+            frappe.msgprint(isRtl ? 'لا توجد بيانات للتصدير. يرجى تحليل البيانات أولاً.' : 'No data to export. Please analyze data first.');
+            return;
+        }
+        
         frappe.show_progress(
             isRtl ? 'إنشاء التقرير' : 'Generating Report', 
-            30, 100, 
+            50, 100, 
             isRtl ? 'جاري تجهيز التقرير الاحترافي...' : 'Preparing professional IFRS report...'
         );
         
-        frappe.xcall('material_ledger.material_ledger.api.generate_ifrs_report', {
-            company: state.filters.company,
-            year: state.filters.year,
-            period: state.filters.period,
-            period_number: state.filters.period_number
-        }).then(report => {
-            frappe.show_progress(
-                isRtl ? 'إنشاء التقرير' : 'Generating Report', 
-                80, 100, 
-                isRtl ? 'جاري إنشاء ملف PDF...' : 'Creating PDF file...'
-            );
-            
-            if (!report) {
-                frappe.hide_progress();
-                frappe.msgprint(isRtl ? 'فشل في إنشاء التقرير' : 'Failed to generate report');
-                return;
-            }
-            
-            // Generate professional HTML
-            let htmlContent = buildIfrsHtml(report, isEnglish);
-            
-            frappe.hide_progress();
-            
+        // Use already loaded data instead of making another API call
+        setTimeout(() => {
             try {
+                const report = buildReportFromLoadedData(state.data, isEnglish);
+                
+                frappe.show_progress(
+                    isRtl ? 'إنشاء التقرير' : 'Generating Report', 
+                    90, 100, 
+                    isRtl ? 'جاري فتح التقرير...' : 'Opening report...'
+                );
+                
+                // Generate professional HTML
+                let htmlContent = buildIfrsHtml(report, isEnglish);
+                
+                frappe.hide_progress();
+                
                 let printWindow = window.open('', '_blank', 'height=800,width=1000');
+                if (!printWindow) {
+                    frappe.msgprint(isRtl ? 'يرجى السماح بالنوافذ المنبثقة' : 'Please allow popups for this site');
+                    return;
+                }
+                
                 printWindow.document.write(htmlContent);
                 printWindow.document.close();
                 
@@ -1385,12 +1551,254 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
                     indicator: 'green' 
                 });
             } catch(e) {
-                frappe.msgprint((isRtl ? '❌ خطأ في فتح التقرير: ' : '❌ Error opening report: ') + e.message);
+                frappe.hide_progress();
+                console.error('PDF Export Error:', e);
+                frappe.msgprint((isRtl ? '❌ خطأ في إنشاء التقرير: ' : '❌ Error creating report: ') + (e.message || e));
             }
-        }).catch(err => {
-            frappe.hide_progress();
-            frappe.msgprint((isRtl ? '❌ خطأ: ' : '❌ Error: ') + (err.message || err));
+        }, 100);
+    }
+    
+    // Build report structure from already loaded data
+    function buildReportFromLoadedData(data, isEnglish) {
+        const summary = data.summary || {};
+        const ratios = data.ratios || {};
+        const cash_flow = data.cash_flow || {};
+        const risk_flags = data.risk_flags || [];
+        
+        const income = summary.income || 0;
+        const expense = summary.expense || 0;
+        const net_profit = summary.profit || 0;
+        const assets = summary.assets || 0;
+        const liabilities = summary.liabilities || 0;
+        const equity = summary.equity || 0;
+        const health_score = summary.health_score || 0;
+        
+        const reportDate = new Date().toLocaleDateString(isEnglish ? 'en-US' : 'ar-SA', {
+            year: 'numeric', month: 'long', day: 'numeric'
         });
+        const periodLabel = data.period || state.filters.year;
+        
+        // Determine financial health status
+        let health_status;
+        if (health_score >= 80) {
+            health_status = isEnglish ? "Excellent" : "ممتاز";
+        } else if (health_score >= 60) {
+            health_status = isEnglish ? "Good" : "جيد";
+        } else if (health_score >= 40) {
+            health_status = isEnglish ? "Fair" : "مقبول";
+        } else {
+            health_status = isEnglish ? "Needs Attention" : "يحتاج انتباه";
+        }
+        
+        const formatCurrency = (val) => frappe.format(val || 0, {fieldtype: 'Currency'});
+        const formatPercent = (val) => `${(val || 0).toFixed(2)}%`;
+        
+        // Calculate net margin
+        const netMargin = income > 0 ? ((net_profit / income) * 100).toFixed(2) + '%' : '0%';
+        
+        // Cash flow values
+        const operating_cf = cash_flow.operating || summary.operating_cash_flow || 0;
+        const investing_cf = cash_flow.investing || summary.investing_cash_flow || 0;
+        const financing_cf = cash_flow.financing || summary.financing_cash_flow || 0;
+        const net_cf = cash_flow.net || summary.net_cash_flow || (operating_cf + investing_cf + financing_cf);
+        
+        // Helper to determine ratio status
+        const getRatioStatus = (value, thresholds) => {
+            if (value >= thresholds.excellent) return isEnglish ? 'Excellent' : 'ممتاز';
+            if (value >= thresholds.good) return isEnglish ? 'Good' : 'جيد';
+            if (value >= thresholds.fair) return isEnglish ? 'Fair' : 'مقبول';
+            return isEnglish ? 'Low' : 'منخفض';
+        };
+        
+        // Build liquidity ratios
+        const currentRatio = ratios.current_ratio || 0;
+        const quickRatio = ratios.quick_ratio || 0;
+        
+        // Build profitability ratios
+        const roe = ratios.roe || 0;
+        const roa = ratios.roa || 0;
+        const netMarginVal = ratios.net_margin || (income > 0 ? (net_profit / income) * 100 : 0);
+        const grossMargin = ratios.gross_margin || 0;
+        
+        // Build solvency ratios
+        const debtRatio = ratios.debt_ratio || (assets > 0 ? (liabilities / assets) * 100 : 0);
+        const equityRatio = ratios.equity_ratio || (assets > 0 ? (equity / assets) * 100 : 0);
+        const zScore = ratios.z_score || 0;
+        
+        // Build conclusions and recommendations from AI report or defaults
+        let conclusions = [];
+        let recommendations_list = [];
+        
+        if (health_score >= 70) {
+            conclusions.push(isEnglish ? 'The company demonstrates strong financial health' : 'تُظهر الشركة صحة مالية قوية');
+        } else if (health_score >= 50) {
+            conclusions.push(isEnglish ? 'The company shows moderate financial performance' : 'تُظهر الشركة أداءً مالياً متوسطاً');
+        } else {
+            conclusions.push(isEnglish ? 'The company needs attention in several financial areas' : 'تحتاج الشركة إلى اهتمام في عدة مجالات مالية');
+        }
+        
+        if (net_profit > 0) {
+            conclusions.push(isEnglish ? `Profitable operations with net income of ${formatCurrency(net_profit)}` : `عمليات مربحة بصافي دخل ${formatCurrency(net_profit)}`);
+        } else {
+            conclusions.push(isEnglish ? `Net loss of ${formatCurrency(Math.abs(net_profit))} requires immediate attention` : `صافي خسارة ${formatCurrency(Math.abs(net_profit))} يتطلب اهتماماً فورياً`);
+        }
+        
+        if (currentRatio >= 1.5) {
+            conclusions.push(isEnglish ? 'Strong liquidity position' : 'وضع سيولة قوي');
+        } else if (currentRatio < 1) {
+            recommendations_list.push(isEnglish ? 'Improve working capital management' : 'تحسين إدارة رأس المال العامل');
+        }
+        
+        recommendations_list.push(isEnglish ? 'Continue monitoring key financial ratios' : 'الاستمرار في مراقبة النسب المالية الرئيسية');
+        recommendations_list.push(isEnglish ? 'Maintain regular financial reporting' : 'الحفاظ على التقارير المالية المنتظمة');
+        
+        return {
+            metadata: {
+                company: state.filters.company,
+                period: periodLabel,
+                report_date: reportDate,
+                prepared_by: isEnglish ? "Financial Analysis System" : "نظام التحليل المالي",
+                standards: "IFRS (IAS 1, IAS 7)"
+            },
+            executive_summary: {
+                title: isEnglish ? "Executive Summary" : "الملخص التنفيذي",
+                health_score: health_score,
+                health_status: health_status,
+                key_metrics: [
+                    {label: isEnglish ? "Revenue" : "الإيرادات", value: income, formatted: formatCurrency(income)},
+                    {label: isEnglish ? "Net Income" : "صافي الدخل", value: net_profit, formatted: formatCurrency(net_profit)},
+                    {label: isEnglish ? "Total Assets" : "إجمالي الأصول", value: assets, formatted: formatCurrency(assets)},
+                    {label: "ROE", value: roe, formatted: formatPercent(roe)},
+                    {label: isEnglish ? "Health Score" : "درجة الصحة", value: health_score, formatted: `${health_score}/100`}
+                ]
+            },
+            financial_statements: {
+                balance_sheet: {
+                    title: isEnglish ? "Statement of Financial Position" : "قائمة المركز المالي",
+                    assets: {total: assets, formatted: formatCurrency(assets)},
+                    liabilities: {total: liabilities, formatted: formatCurrency(liabilities)},
+                    equity: {total: equity, formatted: formatCurrency(equity)}
+                },
+                income_statement: {
+                    title: isEnglish ? "Statement of Comprehensive Income" : "قائمة الدخل الشامل",
+                    revenue: {total: income, formatted: formatCurrency(income)},
+                    expenses: {total: expense, formatted: formatCurrency(expense)},
+                    net_income: {total: net_profit, formatted: formatCurrency(net_profit), margin: netMargin}
+                },
+                cash_flow_statement: {
+                    title: isEnglish ? "Statement of Cash Flows" : "قائمة التدفقات النقدية",
+                    operating_activities: {total: operating_cf, formatted: formatCurrency(operating_cf)},
+                    investing_activities: {total: investing_cf, formatted: formatCurrency(investing_cf)},
+                    financing_activities: {total: financing_cf, formatted: formatCurrency(financing_cf)},
+                    net_change: {total: net_cf, formatted: formatCurrency(net_cf)}
+                }
+            },
+            financial_analysis: {
+                liquidity_ratios: {
+                    description: isEnglish ? 
+                        "Liquidity ratios measure the company's ability to meet short-term obligations." :
+                        "تقيس نسب السيولة قدرة الشركة على الوفاء بالتزاماتها قصيرة الأجل.",
+                    ratios: [
+                        {
+                            name: isEnglish ? "Current Ratio" : "نسبة التداول",
+                            value: currentRatio,
+                            formatted: currentRatio.toFixed(2),
+                            benchmark: "≥ 1.5",
+                            status: getRatioStatus(currentRatio, {excellent: 2, good: 1.5, fair: 1})
+                        },
+                        {
+                            name: isEnglish ? "Quick Ratio" : "نسبة السيولة السريعة",
+                            value: quickRatio,
+                            formatted: quickRatio.toFixed(2),
+                            benchmark: "≥ 1.0",
+                            status: getRatioStatus(quickRatio, {excellent: 1.5, good: 1, fair: 0.7})
+                        }
+                    ]
+                },
+                profitability_ratios: {
+                    description: isEnglish ?
+                        "Profitability ratios measure the company's ability to generate profits relative to revenue, assets, and equity." :
+                        "تقيس نسب الربحية قدرة الشركة على تحقيق الأرباح مقارنة بالإيرادات والأصول وحقوق الملكية.",
+                    ratios: [
+                        {
+                            name: isEnglish ? "Return on Equity (ROE)" : "العائد على حقوق الملكية",
+                            value: roe,
+                            formatted: formatPercent(roe),
+                            benchmark: "≥ 15%",
+                            status: getRatioStatus(roe, {excellent: 20, good: 15, fair: 10})
+                        },
+                        {
+                            name: isEnglish ? "Return on Assets (ROA)" : "العائد على الأصول",
+                            value: roa,
+                            formatted: formatPercent(roa),
+                            benchmark: "≥ 5%",
+                            status: getRatioStatus(roa, {excellent: 10, good: 5, fair: 2})
+                        },
+                        {
+                            name: isEnglish ? "Net Profit Margin" : "هامش صافي الربح",
+                            value: netMarginVal,
+                            formatted: formatPercent(netMarginVal),
+                            benchmark: "≥ 10%",
+                            status: getRatioStatus(netMarginVal, {excellent: 15, good: 10, fair: 5})
+                        }
+                    ]
+                },
+                solvency_ratios: {
+                    description: isEnglish ?
+                        "Solvency ratios assess the company's ability to meet long-term obligations and financial stability." :
+                        "تقيّم نسب الملاءة قدرة الشركة على الوفاء بالتزاماتها طويلة الأجل واستقرارها المالي.",
+                    ratios: [
+                        {
+                            name: isEnglish ? "Debt Ratio" : "نسبة الدين",
+                            value: debtRatio,
+                            formatted: formatPercent(debtRatio),
+                            benchmark: "≤ 60%",
+                            status: debtRatio <= 40 ? (isEnglish ? 'Safe' : 'آمن') : debtRatio <= 60 ? (isEnglish ? 'Good' : 'جيد') : (isEnglish ? 'High' : 'مرتفع')
+                        },
+                        {
+                            name: isEnglish ? "Equity Ratio" : "نسبة حقوق الملكية",
+                            value: equityRatio,
+                            formatted: formatPercent(equityRatio),
+                            benchmark: "≥ 40%",
+                            status: getRatioStatus(equityRatio, {excellent: 60, good: 40, fair: 30})
+                        },
+                        {
+                            name: isEnglish ? "Altman Z-Score" : "مؤشر ألتمان Z",
+                            value: zScore,
+                            formatted: zScore.toFixed(2),
+                            benchmark: "> 2.99",
+                            status: zScore > 2.99 ? (isEnglish ? 'Safe' : 'آمن') : zScore > 1.81 ? (isEnglish ? 'Grey Zone' : 'منطقة رمادية') : (isEnglish ? 'Distress' : 'خطر')
+                        }
+                    ]
+                },
+                dupont_analysis: {
+                    description: isEnglish ?
+                        "DuPont analysis breaks down ROE into three components to identify drivers of profitability." :
+                        "يُفكك تحليل ديبونت العائد على حقوق الملكية إلى ثلاثة مكونات لتحديد محركات الربحية.",
+                    components: [
+                        {
+                            name: isEnglish ? "Net Profit Margin" : "هامش صافي الربح",
+                            value: formatPercent(netMarginVal),
+                            formula: isEnglish ? "Net Income / Revenue" : "صافي الدخل / الإيرادات"
+                        },
+                        {
+                            name: isEnglish ? "Asset Turnover" : "دوران الأصول",
+                            value: assets > 0 ? (income / assets).toFixed(2) : '0.00',
+                            formula: isEnglish ? "Revenue / Total Assets" : "الإيرادات / إجمالي الأصول"
+                        },
+                        {
+                            name: isEnglish ? "Equity Multiplier" : "مضاعف حقوق الملكية",
+                            value: equity > 0 ? (assets / equity).toFixed(2) : '0.00',
+                            formula: isEnglish ? "Total Assets / Equity" : "إجمالي الأصول / حقوق الملكية"
+                        }
+                    ]
+                }
+            },
+            recommendations: {
+                conclusions: conclusions,
+                recommendations: recommendations_list
+            }
+        };
     }
     
     function buildIfrsHtml(report, isEnglish = true) {
@@ -2312,4 +2720,85 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
     if (localStorage.getItem('financial_analysis_dark_mode') === 'true') {
         document.documentElement.setAttribute('data-dark-mode', 'true');
     }
+
+    // ============================================
+    // Initialize Modules
+    // ============================================
+    
+    // Load and initialize keyboard shortcuts
+    function initializeShortcuts() {
+        if (typeof FinancialShortcuts !== 'undefined') {
+            FinancialShortcuts.init();
+            
+            // Register custom shortcuts
+            FinancialShortcuts.register('c', () => {
+                if (typeof FinancialComparison !== 'undefined') {
+                    FinancialComparison.show();
+                }
+            }, isRtl ? 'مقارنة الشركات' : 'Company Comparison');
+            
+            FinancialShortcuts.register('w', () => {
+                if (typeof FinancialDashboardWidgets !== 'undefined') {
+                    $('#custom-dashboard').slideToggle();
+                }
+            }, isRtl ? 'عرض/إخفاء الويدجات' : 'Toggle Widgets');
+        }
+    }
+    
+    // Load and initialize notifications
+    function initializeNotifications() {
+        if (typeof FinancialNotifications !== 'undefined') {
+            FinancialNotifications.init();
+        }
+    }
+    
+    // Load and initialize responsive features
+    function initializeResponsive() {
+        if (typeof FinancialResponsive !== 'undefined') {
+            FinancialResponsive.init();
+        }
+    }
+    
+    // Load and initialize comparison
+    function initializeComparison() {
+        if (typeof FinancialComparison !== 'undefined') {
+            FinancialComparison.init();
+        }
+    }
+    
+    // Load and initialize dashboard widgets
+    function initializeDashboardWidgets() {
+        if (typeof FinancialDashboardWidgets !== 'undefined') {
+            // Set financial data reference
+            window.financialData = state.data?.summary || {};
+            FinancialDashboardWidgets.init();
+        }
+    }
+    
+    // Show risk alerts when data loads
+    function showDataRiskAlerts() {
+        if (typeof FinancialNotifications !== 'undefined' && state.data) {
+            const summary = state.data.summary || {};
+            const ratios = state.data.ratios || {};
+            
+            FinancialNotifications.showRiskAlerts({
+                currentRatio: ratios.current_ratio,
+                quickRatio: ratios.quick_ratio,
+                debtRatio: ratios.debt_ratio,
+                profit: summary.profit,
+                netMargin: ratios.net_margin
+            });
+        }
+    }
+    
+    // Initialize all modules after a short delay
+    setTimeout(() => {
+        initializeShortcuts();
+        initializeNotifications();
+        initializeResponsive();
+        initializeComparison();
+        initializeDashboardWidgets();
+        console.log('✅ All modules initialized');
+    }, 500);
 };
+

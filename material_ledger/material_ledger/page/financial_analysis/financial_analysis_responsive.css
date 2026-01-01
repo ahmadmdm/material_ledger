@@ -1,0 +1,695 @@
+/**
+ * Financial Analysis - Professional Responsive Styles
+ * Mobile-first responsive design
+ */
+
+/* ===========================================
+   CSS Custom Properties (Theme Variables)
+   =========================================== */
+:root {
+    /* Colors */
+    --color-primary: #667eea;
+    --color-primary-dark: #764ba2;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-info: #3b82f6;
+    
+    /* Text colors */
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    
+    /* Background colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    
+    /* Border */
+    --border-color: #e5e7eb;
+    --border-radius-sm: 8px;
+    --border-radius-md: 12px;
+    --border-radius-lg: 16px;
+    --border-radius-xl: 24px;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 15px rgba(0,0,0,0.08);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.12);
+    --shadow-xl: 0 20px 50px rgba(0,0,0,0.15);
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    
+    /* Typography */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-family-arabic: 'Cairo', 'Inter', sans-serif;
+    --font-size-xs: 11px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 18px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 32px;
+    
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --bg-primary: #1f2937;
+    --bg-secondary: #111827;
+    --bg-tertiary: #374151;
+    --border-color: #4b5563;
+}
+
+/* ===========================================
+   Base Styles
+   =========================================== */
+.financial-analysis-page {
+    font-family: var(--font-family);
+    background: var(--bg-secondary);
+    min-height: 100vh;
+    color: var(--text-primary);
+}
+
+[lang="ar"] .financial-analysis-page {
+    font-family: var(--font-family-arabic);
+    direction: rtl;
+}
+
+/* ===========================================
+   Hero Section
+   =========================================== */
+.financial-hero {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    padding: var(--spacing-xl);
+    border-radius: var(--border-radius-lg);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: 0 15px 50px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+.financial-hero h2 {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.financial-hero p {
+    margin: var(--spacing-sm) 0 0;
+    opacity: 0.9;
+    font-size: var(--font-size-md);
+}
+
+/* ===========================================
+   KPI Cards
+   =========================================== */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.kpi-card {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.kpi-card .kpi-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-bottom: var(--spacing-md);
+}
+
+.kpi-card .kpi-value {
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.kpi-card .kpi-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.kpi-card .kpi-trend {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+[dir="rtl"] .kpi-card .kpi-trend {
+    right: auto;
+    left: var(--spacing-md);
+}
+
+.kpi-card .kpi-trend.positive {
+    background: #d1fae5;
+    color: var(--color-success);
+}
+
+.kpi-card .kpi-trend.negative {
+    background: #fee2e2;
+    color: var(--color-danger);
+}
+
+/* ===========================================
+   Tab Navigation
+   =========================================== */
+.financial-tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    background: var(--bg-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.financial-tab {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: transparent;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.financial-tab:hover {
+    border-color: var(--color-primary);
+    background: rgba(102, 126, 234, 0.05);
+    color: var(--color-primary);
+}
+
+.financial-tab.active {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.financial-tab i {
+    font-size: 14px;
+}
+
+/* ===========================================
+   Content Cards
+   =========================================== */
+.content-card {
+    background: var(--bg-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+}
+
+.content-card-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.content-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.content-card-body {
+    padding: var(--spacing-lg);
+}
+
+/* ===========================================
+   Tables
+   =========================================== */
+.financial-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.financial-table th,
+.financial-table td {
+    padding: var(--spacing-md) var(--spacing-lg);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+[dir="rtl"] .financial-table th,
+[dir="rtl"] .financial-table td {
+    text-align: right;
+}
+
+.financial-table th {
+    background: var(--bg-tertiary);
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.financial-table tbody tr {
+    transition: background var(--transition-fast);
+}
+
+.financial-table tbody tr:hover {
+    background: var(--bg-tertiary);
+}
+
+.financial-table .amount {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-weight: 600;
+}
+
+.financial-table .amount.positive {
+    color: var(--color-success);
+}
+
+.financial-table .amount.negative {
+    color: var(--color-danger);
+}
+
+/* ===========================================
+   Charts
+   =========================================== */
+.chart-container {
+    position: relative;
+    height: 350px;
+    padding: var(--spacing-md);
+}
+
+.chart-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.chart-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    transition: all var(--transition-fast);
+}
+
+.chart-btn:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* ===========================================
+   Buttons
+   =========================================== */
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color);
+}
+
+/* ===========================================
+   Loading States
+   =========================================== */
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+}
+
+.loading-spinner i {
+    font-size: 42px;
+    color: var(--color-primary);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.loading-spinner span {
+    margin-top: var(--spacing-md);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+/* ===========================================
+   Responsive - Tablet
+   =========================================== */
+@media screen and (max-width: 1024px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .financial-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: var(--spacing-sm);
+    }
+    
+    .financial-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .financial-tab {
+        flex-shrink: 0;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .chart-container {
+        height: 300px;
+    }
+}
+
+/* ===========================================
+   Responsive - Mobile
+   =========================================== */
+@media screen and (max-width: 768px) {
+    .financial-hero {
+        padding: var(--spacing-lg);
+    }
+    
+    .financial-hero h2 {
+        font-size: var(--font-size-xl);
+        flex-direction: column;
+        text-align: center;
+        gap: var(--spacing-sm);
+    }
+    
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-sm);
+    }
+    
+    .kpi-card {
+        padding: var(--spacing-md);
+    }
+    
+    .kpi-card .kpi-value {
+        font-size: var(--font-size-xl);
+    }
+    
+    .kpi-card .kpi-label {
+        font-size: var(--font-size-xs);
+    }
+    
+    .financial-tabs {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+    
+    .financial-tab {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .content-card-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        text-align: center;
+    }
+    
+    .financial-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .financial-table th,
+    .financial-table td {
+        padding: var(--spacing-sm) var(--spacing-md);
+        white-space: nowrap;
+        font-size: var(--font-size-xs);
+    }
+    
+    .chart-container {
+        height: 250px;
+    }
+    
+    .chart-controls {
+        justify-content: center;
+    }
+}
+
+/* ===========================================
+   Responsive - Small Mobile
+   =========================================== */
+@media screen and (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .financial-hero h2 {
+        font-size: var(--font-size-lg);
+    }
+    
+    .kpi-card .kpi-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .chart-container {
+        height: 200px;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ===========================================
+   Touch Device Enhancements
+   =========================================== */
+@media (pointer: coarse) {
+    .financial-tab,
+    .btn-primary,
+    .btn-secondary,
+    .chart-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .financial-table tbody tr {
+        min-height: 50px;
+    }
+}
+
+/* ===========================================
+   Print Styles
+   =========================================== */
+@media print {
+    .financial-tabs,
+    .chart-controls,
+    .btn-primary,
+    .btn-secondary,
+    .no-print {
+        display: none !important;
+    }
+    
+    .content-card {
+        box-shadow: none;
+        page-break-inside: avoid;
+    }
+    
+    .financial-table {
+        page-break-inside: auto;
+    }
+    
+    .financial-table tr {
+        page-break-inside: avoid;
+    }
+    
+    .chart-container {
+        page-break-inside: avoid;
+        height: auto;
+    }
+}
+
+/* ===========================================
+   Accessibility Enhancements
+   =========================================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (prefers-contrast: high) {
+    .financial-tab,
+    .kpi-card,
+    .content-card {
+        border: 2px solid currentColor;
+    }
+    
+    .financial-tab.active {
+        background: #000;
+        color: #fff;
+    }
+}
+
+/* ===========================================
+   RTL Specific Styles
+   =========================================== */
+[dir="rtl"] .kpi-card .kpi-icon,
+[dir="rtl"] .financial-tab i {
+    margin-left: var(--spacing-sm);
+    margin-right: 0;
+}
+
+[dir="rtl"] .content-card-title i {
+    margin-left: var(--spacing-sm);
+    margin-right: 0;
+}
+
+/* ===========================================
+   Animation Classes
+   =========================================== */
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.4s ease-out;
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-right {
+    animation: slideInRight 0.4s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.scale-in {
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

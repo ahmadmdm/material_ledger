@@ -1,0 +1,165 @@
+{
+    "actions": [],
+    "autoname": "hash",
+    "creation": "2025-01-01 00:00:00",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "section_action",
+        "action",
+        "report_type",
+        "section_context",
+        "company",
+        "fiscal_year",
+        "period",
+        "column_break_1",
+        "user",
+        "timestamp",
+        "ip_address",
+        "user_agent",
+        "section_result",
+        "success",
+        "error_message",
+        "details"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_action",
+            "fieldtype": "Section Break",
+            "label": "Action Info"
+        },
+        {
+            "fieldname": "action",
+            "fieldtype": "Select",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "Action",
+            "options": "\nview\nexport\nprint\ngenerate\ncompare\nshare",
+            "reqd": 1
+        },
+        {
+            "fieldname": "report_type",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "Report Type",
+            "reqd": 1
+        },
+        {
+            "fieldname": "section_context",
+            "fieldtype": "Section Break",
+            "label": "Context"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "in_standard_filter": 1,
+            "label": "Company",
+            "options": "Company"
+        },
+        {
+            "fieldname": "fiscal_year",
+            "fieldtype": "Data",
+            "label": "Fiscal Year"
+        },
+        {
+            "fieldname": "period",
+            "fieldtype": "Data",
+            "label": "Period"
+        },
+        {
+            "fieldname": "column_break_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "user",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "User",
+            "options": "User",
+            "reqd": 1
+        },
+        {
+            "fieldname": "timestamp",
+            "fieldtype": "Datetime",
+            "in_list_view": 1,
+            "label": "Timestamp",
+            "reqd": 1
+        },
+        {
+            "fieldname": "ip_address",
+            "fieldtype": "Data",
+            "label": "IP Address"
+        },
+        {
+            "fieldname": "user_agent",
+            "fieldtype": "Small Text",
+            "label": "User Agent"
+        },
+        {
+            "fieldname": "section_result",
+            "fieldtype": "Section Break",
+            "label": "Result"
+        },
+        {
+            "fieldname": "success",
+            "fieldtype": "Check",
+            "default": 1,
+            "in_list_view": 1,
+            "label": "Success"
+        },
+        {
+            "fieldname": "error_message",
+            "fieldtype": "Small Text",
+            "label": "Error Message"
+        },
+        {
+            "fieldname": "details",
+            "fieldtype": "Code",
+            "label": "Details",
+            "options": "JSON"
+        }
+    ],
+    "in_create": 0,
+    "is_submittable": 0,
+    "links": [],
+    "modified": "2025-01-01 00:00:00",
+    "modified_by": "Administrator",
+    "module": "Material Ledger",
+    "name": "Financial Audit Log",
+    "naming_rule": "Random",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 0
+        },
+        {
+            "create": 0,
+            "delete": 0,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "Accounts Manager",
+            "share": 0,
+            "write": 0
+        }
+    ],
+    "sort_field": "timestamp",
+    "sort_order": "DESC",
+    "title_field": "action",
+    "track_changes": 0,
+    "track_seen": 0
+}

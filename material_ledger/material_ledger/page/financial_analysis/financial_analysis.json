@@ -16,6 +16,12 @@
   },
   {
    "role": "Administrator"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
   }
  ],
  "script": null,
