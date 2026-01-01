@@ -3,6 +3,8 @@ from frappe import _
 from frappe.utils import flt, getdate, cint
 import requests
 import json
+import time
+import hashlib
 from functools import wraps
 
 # Import services
@@ -556,24 +558,46 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
         cash_flow = get_actual_cash_flows(company, start_date, end_date, net_profit)
         cashflow_analysis = analyze_cashflow(cash_flow, net_profit)
 
+    # AI Report - Run in background for faster response
     ai_report = None
+    ai_job_id = None
     if need("ai"):
-        ai_report = generate_ai_report(company, year, {
-            "period": period_label,
-            "net_profit": net_profit,
-            "income": income,
-            "expense": expense,
-            "assets": assets,
-            "liabilities": liabilities,
-            "equity": equity,
-            "ratios": ratios,
-            "risk_flags": risk_flags,
-            "health_score": health_score,
-            "quarterly": quarterly,
-            "monthly": monthly,
-            "equity_changes": equity_changes,
-            "cash_flow": cash_flow
-        })
+        # Generate a unique job ID for this request
+        ai_job_id = generate_ai_job_id(company, year, period, period_number)
+        
+        # Check if AI report is already cached
+        cached_ai = frappe.cache().get_value(f"ai_report_{ai_job_id}")
+        if cached_ai:
+            ai_report = cached_ai
+        else:
+            # Prepare data for background job
+            ai_data = {
+                "period": period_label,
+                "net_profit": net_profit,
+                "income": income,
+                "expense": expense,
+                "assets": assets,
+                "liabilities": liabilities,
+                "equity": equity,
+                "ratios": ratios,
+                "risk_flags": risk_flags,
+                "health_score": health_score,
+                "quarterly": quarterly,
+                "monthly": monthly,
+                "equity_changes": equity_changes,
+                "cash_flow": cash_flow
+            }
+            # Enqueue background job for AI generation
+            frappe.enqueue(
+                "material_ledger.material_ledger.api.generate_ai_report_background",
+                queue="long",
+                timeout=300,
+                job_id=ai_job_id,
+                company=company,
+                year=year,
+                data=ai_data,
+                job_id_key=ai_job_id
+            )
 
     response = {
         "period": period_label,
@@ -612,7 +636,13 @@ def get_financial_analysis(company, year, period="annual", period_number=None, s
         response["equity_changes"] = equity_changes
 
     if need("ai"):
-        response["ai_report"] = ai_report
+        if ai_report:
+            response["ai_report"] = ai_report
+            response["ai_status"] = "ready"
+        else:
+            response["ai_report"] = None
+            response["ai_status"] = "loading"
+            response["ai_job_id"] = ai_job_id
 
     # Cache the full response for 5 minutes
     if fetch_all:
@@ -894,6 +924,71 @@ def detect_risk_flags(ratios, profit, income, assets, liabilities):
         })
     
     return flags
+
+
+def generate_ai_job_id(company, year, period, period_number):
+    """Generate unique job ID for AI background task"""
+    key = f"{company}_{year}_{period}_{period_number}"
+    return f"ai_report_{hashlib.md5(key.encode()).hexdigest()[:16]}"
+
+
+def generate_ai_report_background(company, year, data, job_id_key):
+    """
+    Background job to generate AI report
+    Stores result in cache when complete
+    """
+    try:
+        frappe.logger().info(f"Starting AI report generation for {company} - Job: {job_id_key}")
+        
+        # Generate the AI report
+        ai_report = ai_generate_report(company, year, data)
+        
+        if ai_report:
+            # Cache the result for 30 minutes
+            frappe.cache().set_value(f"ai_report_{job_id_key}", ai_report, expires_in_sec=1800)
+            frappe.cache().set_value(f"ai_status_{job_id_key}", "ready", expires_in_sec=1800)
+            frappe.logger().info(f"AI report completed for {company} - Job: {job_id_key}")
+        else:
+            frappe.cache().set_value(f"ai_status_{job_id_key}", "error", expires_in_sec=300)
+            frappe.cache().set_value(f"ai_error_{job_id_key}", "Failed to generate AI report", expires_in_sec=300)
+            
+    except Exception as e:
+        frappe.log_error(f"AI Background Job Error: {str(e)}", "Material Ledger AI")
+        frappe.cache().set_value(f"ai_status_{job_id_key}", "error", expires_in_sec=300)
+        frappe.cache().set_value(f"ai_error_{job_id_key}", str(e), expires_in_sec=300)
+
+
+@frappe.whitelist()
+def get_ai_report_status(job_id):
+    """
+    Check status of AI report generation and return report if ready
+    
+    Returns:
+        dict with status ('loading', 'ready', 'error') and ai_report if ready
+    """
+    if not job_id:
+        return {"status": "error", "message": "No job ID provided"}
+    
+    # Check cache for status
+    status = frappe.cache().get_value(f"ai_status_{job_id}")
+    
+    if status == "ready":
+        ai_report = frappe.cache().get_value(f"ai_report_{job_id}")
+        return {
+            "status": "ready",
+            "ai_report": ai_report
+        }
+    elif status == "error":
+        error_msg = frappe.cache().get_value(f"ai_error_{job_id}") or "Unknown error"
+        return {
+            "status": "error",
+            "message": error_msg
+        }
+    else:
+        # Still loading or not started
+        return {
+            "status": "loading"
+        }
 
 
 @frappe.whitelist()

@@ -585,7 +585,7 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
             
             if (data) {
                 console.log('📊 Financial Data loaded in ' + loadTime + 's:', data);
-                console.log('🤖 AI Report in response:', !!data.ai_report, 'Length:', data.ai_report?.length || 0);
+                console.log('🤖 AI Status:', data.ai_status, 'Job ID:', data.ai_job_id);
                 state.data = data;
                 // Cache for offline use
                 localCache.set(state.filters.company, state.filters.year, state.filters.period, data);
@@ -594,6 +594,12 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
                     message: '✅ ' + (isRtl ? 'تم التحليل في ' + loadTime + ' ثانية' : 'Analysis completed in ' + loadTime + 's'), 
                     indicator: 'green' 
                 });
+                
+                // If AI is loading in background, start polling
+                if (data.ai_status === 'loading' && data.ai_job_id) {
+                    console.log('🤖 Starting AI polling for job:', data.ai_job_id);
+                    startAIPolling(data.ai_job_id);
+                }
             }
         }).catch((err) => {
             state.loading = false;
@@ -617,6 +623,67 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
                 $('.retry-btn').on('click', fetchAnalysis);
             }
         });
+    }
+    
+    // AI Polling System
+    let aiPollingInterval = null;
+    let aiPollingAttempts = 0;
+    const MAX_AI_POLLING_ATTEMPTS = 60; // Max 5 minutes (5 sec * 60)
+    
+    function startAIPolling(jobId) {
+        // Stop any existing polling
+        stopAIPolling();
+        
+        aiPollingAttempts = 0;
+        console.log('🤖 AI Polling started for:', jobId);
+        
+        aiPollingInterval = setInterval(() => {
+            aiPollingAttempts++;
+            
+            if (aiPollingAttempts > MAX_AI_POLLING_ATTEMPTS) {
+                console.log('🤖 AI Polling timeout - max attempts reached');
+                stopAIPolling();
+                updateAITabWithError(isRtl ? 'انتهى وقت انتظار تقرير AI' : 'AI report timed out');
+                return;
+            }
+            
+            frappe.xcall('material_ledger.material_ledger.api.get_ai_report_status', {
+                job_id: jobId
+            }).then((result) => {
+                console.log('🤖 AI Poll result:', result.status, 'Attempt:', aiPollingAttempts);
+                
+                if (result.status === 'ready') {
+                    stopAIPolling();
+                    state.data.ai_report = result.ai_report;
+                    state.data.ai_status = 'ready';
+                    renderAIAnalysis();
+                    frappe.show_alert({
+                        message: isRtl ? '🤖 تم تحميل تقرير الذكاء الاصطناعي' : '🤖 AI report loaded',
+                        indicator: 'green'
+                    });
+                } else if (result.status === 'error') {
+                    stopAIPolling();
+                    updateAITabWithError(result.message || (isRtl ? 'حدث خطأ في تحليل AI' : 'AI analysis error'));
+                }
+                // If still 'loading', continue polling
+            }).catch((err) => {
+                console.error('🤖 AI Poll error:', err);
+                // Don't stop polling on network errors, just log
+            });
+        }, 5000); // Poll every 5 seconds
+    }
+    
+    function stopAIPolling() {
+        if (aiPollingInterval) {
+            clearInterval(aiPollingInterval);
+            aiPollingInterval = null;
+        }
+    }
+    
+    function updateAITabWithError(message) {
+        state.data.ai_status = 'error';
+        state.data.ai_error = message;
+        renderAIAnalysis();
     }
 
     function showRefreshingIndicator() {
@@ -1231,11 +1298,56 @@ frappe.pages['financial-analysis'].on_page_load = function(wrapper) {
 
     function renderAIAnalysis() {
         console.log('🤖 renderAIAnalysis called');
-        console.log('🤖 state.data:', state.data);
-        console.log('🤖 state.data?.ai_report:', state.data?.ai_report);
+        console.log('🤖 AI Status:', state.data?.ai_status);
         
+        const aiStatus = state.data?.ai_status;
         const aiReport = state.data?.ai_report;
+        const aiError = state.data?.ai_error;
         
+        // Show loading state
+        if (aiStatus === 'loading') {
+            let html = `
+                <div class="fade-in" style="background: white; border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 50px; text-align: center;">
+                    <div style="width: 100px; height: 100px; margin: 0 auto 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite;">
+                        <span style="font-size: 48px;">🤖</span>
+                    </div>
+                    <h3 style="font-size: 22px; color: #1f2937; margin: 0 0 12px; font-weight: 800;">${isRtl ? 'جاري تحليل البيانات بالذكاء الاصطناعي...' : 'AI is analyzing your data...'}</h3>
+                    <p style="color: #6b7280; margin: 0 0 20px; font-size: 15px;">${isRtl ? 'نموذج DeepSeek Reasoner يقوم بتحليل عميق للبيانات المالية' : 'DeepSeek Reasoner is performing deep analysis'}</p>
+                    <div style="display: flex; justify-content: center; gap: 8px;">
+                        <div class="ai-dot" style="width: 12px; height: 12px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.32s;"></div>
+                        <div class="ai-dot" style="width: 12px; height: 12px; background: #764ba2; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.16s;"></div>
+                        <div class="ai-dot" style="width: 12px; height: 12px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both;"></div>
+                    </div>
+                    <p style="color: #9ca3af; margin: 20px 0 0; font-size: 12px;">${isRtl ? 'قد يستغرق هذا من 30 ثانية إلى دقيقتين' : 'This may take 30 seconds to 2 minutes'}</p>
+                </div>
+                <style>
+                    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+                    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+                </style>
+            `;
+            $('#ai-tab').html(html);
+            return;
+        }
+        
+        // Show error state
+        if (aiStatus === 'error') {
+            let html = `
+                <div class="fade-in" style="background: white; border-radius: 16px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); padding: 50px; text-align: center;">
+                    <div style="width: 100px; height: 100px; margin: 0 auto 25px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 48px;">⚠️</span>
+                    </div>
+                    <h3 style="font-size: 22px; color: #1f2937; margin: 0 0 12px; font-weight: 800;">${isRtl ? 'حدث خطأ في تحليل AI' : 'AI Analysis Error'}</h3>
+                    <p style="color: #6b7280; margin: 0 0 20px; font-size: 15px;">${aiError || (isRtl ? 'حدث خطأ أثناء توليد التقرير' : 'Error generating report')}</p>
+                    <button onclick="location.reload()" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        ${isRtl ? 'إعادة المحاولة' : 'Try Again'}
+                    </button>
+                </div>
+            `;
+            $('#ai-tab').html(html);
+            return;
+        }
+        
+        // No report available
         if (!aiReport) {
             console.log('🤖 AI Report is empty or null');
             let html = `
