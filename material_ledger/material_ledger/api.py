@@ -18,6 +18,7 @@ try:
     SECURITY_ENABLED = True
 except ImportError:
     SECURITY_ENABLED = False
+    audit_logger = None  # Define audit_logger as None when security is disabled
     # Fallback decorators if security module not available
     def rate_limited(*args, **kwargs):
         def decorator(func):
