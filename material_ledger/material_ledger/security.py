@@ -61,14 +61,14 @@ class RateLimiter:
         try:
             # Get current count from cache
             cache_key = f"{key}:{int(now // window)}"
-            current_count = cint(frappe.cache().get(cache_key) or 0)
+            current_count = cint(frappe.cache.get_value(cache_key) or 0)
             
             if current_count >= limit:
                 reset_time = int((int(now // window) + 1) * window)
                 return False, 0, reset_time
             
             # Increment counter
-            frappe.cache().set(cache_key, current_count + 1, expires_in_sec=window)
+            frappe.cache.set_value(cache_key, current_count + 1, expires_in_sec=int(window))
             
             remaining = limit - current_count - 1
             reset_time = int((int(now // window) + 1) * window)
@@ -88,7 +88,7 @@ class RateLimiter:
         
         now = time.time()
         cache_key = f"{key}:{int(now // window)}"
-        current_count = cint(frappe.cache().get(cache_key) or 0)
+        current_count = cint(frappe.cache.get_value(cache_key) or 0)
         
         return max(0, limit - current_count)
     
@@ -98,7 +98,7 @@ class RateLimiter:
         now = time.time()
         window = self.default_window
         cache_key = f"{key}:{int(now // window)}"
-        frappe.cache().delete(cache_key)
+        frappe.cache.delete_value(cache_key)
 
 
 # Default rate limiter instance

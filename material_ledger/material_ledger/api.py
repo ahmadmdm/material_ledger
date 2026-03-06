@@ -2156,3 +2156,556 @@ def calculate_overall_benchmark_score(comparison):
     
     total_percentile = sum(c["percentile"] for c in comparison.values())
     return flt(total_percentile / len(comparison), 0)
+
+
+# ==========================================
+# AI Dashboard API Methods
+# ==========================================
+
+@frappe.whitelist()
+@rate_limited()
+@audit_logged("view", "health_score")
+def get_financial_health_score(company, year=None):
+    """
+    Calculate comprehensive financial health score for AI dashboard
+    
+    Args:
+        company: Company name
+        year: Fiscal year (optional)
+        
+    Returns:
+        dict: Health score and description
+    """
+    try:
+        validator = InputValidator()
+        validator.validate_company(company)
+        
+        if not year:
+            year = frappe.utils.nowdate().split('-')[0]
+        
+        # Get financial data (lightweight - ratios only)
+        data = get_financial_analysis(company, year, sections=["ratios"])
+        
+        if not data or 'ratios' not in data:
+            return {"score": 0, "description": "بيانات غير كافية لحساب درجة الصحة المالية"}
+        
+        ratios = data['ratios']
+        calculator = FinancialCalculator()
+        
+        # Calculate health score using multiple factors
+        score = 50  # Base score
+        
+        # Profitability factors (30%)
+        roe = ratios.get('roe', 0)
+        if roe > 15:
+            score += 15
+        elif roe > 10:
+            score += 10
+        elif roe > 5:
+            score += 5
+        elif roe < 0:
+            score -= 15
+        
+        roa = ratios.get('roa', 0)
+        if roa > 10:
+            score += 10
+        elif roa > 5:
+            score += 5
+        elif roa < 0:
+            score -= 10
+        
+        # Liquidity factors (25%)
+        current_ratio = ratios.get('current_ratio', 0)
+        if current_ratio > 2:
+            score += 12
+        elif current_ratio > 1.5:
+            score += 8
+        elif current_ratio > 1:
+            score += 4
+        else:
+            score -= 12
+        
+        quick_ratio = ratios.get('quick_ratio', 0)
+        if quick_ratio > 1.5:
+            score += 8
+        elif quick_ratio > 1:
+            score += 5
+        elif quick_ratio < 0.5:
+            score -= 8
+        
+        # Leverage factors (20%)
+        debt_ratio = ratios.get('debt_ratio', 0)
+        if debt_ratio < 30:
+            score += 10
+        elif debt_ratio > 70:
+            score -= 15
+        
+        leverage = ratios.get('leverage', 0)
+        if leverage < 2:
+            score += 5
+        elif leverage > 4:
+            score -= 10
+        
+        # Efficiency factors (15%)
+        asset_turnover = ratios.get('asset_turnover', 0)
+        if asset_turnover > 1.5:
+            score += 8
+        elif asset_turnover > 1:
+            score += 5
+        elif asset_turnover < 0.5:
+            score -= 5
+        
+        # Growth factors (10%)
+        income_growth = ratios.get('income_growth', 0)
+        if income_growth > 10:
+            score += 5
+        elif income_growth > 0:
+            score += 3
+        elif income_growth < -10:
+            score -= 5
+        
+        # Ensure score is within bounds
+        score = max(0, min(100, score))
+        
+        # Generate description
+        if score >= 80:
+            description = "🌟 صحة مالية ممتازة - أداء قوي في جميع المجالات"
+        elif score >= 70:
+            description = "✅ صحة مالية جيدة جداً - أداء قوي مع إمكانية للتحسين"
+        elif score >= 60:
+            description = "👍 صحة مالية جيدة - أداء معقول مع حاجة لمراقبة بعض المؤشرات"
+        elif score >= 50:
+            description = "⚠️ صحة مالية متوسطة - تحتاج لاهتمام ومراجعة المؤشرات الرئيسية"
+        elif score >= 30:
+            description = "🔴 صحة مالية ضعيفة - تتطلب إجراءات فورية للتصحيح"
+        else:
+            description = "🚨 صحة مالية حرجة - تتطلب تدخل عاجل وخطة إنعاش شاملة"
+        
+        return {
+            "score": int(score),
+            "description": description,
+            "breakdown": {
+                "profitability": {"roe": roe, "roa": roa},
+                "liquidity": {"current_ratio": current_ratio, "quick_ratio": quick_ratio},
+                "leverage": {"debt_ratio": debt_ratio, "leverage": leverage},
+                "efficiency": {"asset_turnover": asset_turnover},
+                "growth": {"income_growth": income_growth}
+            }
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Health Score Error: {str(e)}", "Material Ledger API")
+        return {"score": 0, "description": "خطأ في حساب درجة الصحة المالية"}
+
+
+@frappe.whitelist()
+@rate_limited()
+@audit_logged("view", "recommendations")
+def get_ai_recommendations(company):
+    """
+    Get AI-powered financial recommendations
+    
+    Args:
+        company: Company name
+        
+    Returns:
+        list: List of recommendations
+    """
+    try:
+        validator = InputValidator()
+        validator.validate_company(company)
+        
+        # Get current year financial data (lightweight - ratios only)
+        year = frappe.utils.nowdate().split('-')[0]
+        data = get_financial_analysis(company, year, sections=["ratios"])
+        
+        recommendations = []
+        
+        if not data or 'ratios' not in data:
+            return [{
+                "type": "data_collection",
+                "priority": "high",
+                "description": "قم بتسجيل المعاملات المالية لتحسين دقة التحليلات والتوصيات",
+                "impact": "عالي"
+            }]
+        
+        ratios = data['ratios']
+        
+        # Cash flow recommendations
+        if ratios.get('current_ratio', 0) < 1.5:
+            recommendations.append({
+                "type": "liquidity_improvement",
+                "priority": "high",
+                "description": "تحسين السيولة - نسبة السيولة الجارية منخفضة، قم بزيادة النقد أو تقليل الالتزامات قصيرة المدى",
+                "impact": "عالي"
+            })
+        
+        # Profitability recommendations
+        if ratios.get('roe', 0) < 10:
+            recommendations.append({
+                "type": "profitability_enhancement",
+                "priority": "medium",
+                "description": "تحسين الربحية - العائد على حقوق الملكية منخفض، ركز على زيادة الإيرادات أو تقليل التكاليف",
+                "impact": "متوسط"
+            })
+        
+        # Debt management recommendations
+        if ratios.get('debt_ratio', 0) > 60:
+            recommendations.append({
+                "type": "debt_management",
+                "priority": "high",
+                "description": "إدارة الديون - نسبة الديون عالية، قم بوضع خطة لتقليل الالتزامات أو زيادة رأس المال",
+                "impact": "عالي"
+            })
+        
+        # Efficiency recommendations
+        if ratios.get('asset_turnover', 0) < 1:
+            recommendations.append({
+                "type": "efficiency_improvement", 
+                "priority": "medium",
+                "description": "تحسين الكفاءة - معدل دوران الأصول منخفض، قم بتحسين استخدام الأصول لتوليد إيرادات أكثر",
+                "impact": "متوسط"
+            })
+        
+        # Growth recommendations
+        if ratios.get('income_growth', 0) < 5:
+            recommendations.append({
+                "type": "growth_strategy",
+                "priority": "medium", 
+                "description": "استراتيجية النمو - معدل نمو الإيرادات بطيء، ادرس فرص التوسع أو تطوير منتجات جديدة",
+                "impact": "متوسط"
+            })
+        
+        # AI-powered recommendations using the AI service
+        try:
+            ai_service = get_ai_service()
+            if ai_service.is_available():
+                ai_recs = ai_service.generate_quick_recommendations(company, data)
+                if ai_recs:
+                    recommendations.extend(ai_recs)
+        except Exception as ai_error:
+            frappe.log_error(f"AI Recommendations Error: {str(ai_error)}", "Material Ledger API")
+        
+        # If no specific recommendations, provide general ones
+        if not recommendations:
+            recommendations = [
+                {
+                    "type": "general_monitoring",
+                    "priority": "low",
+                    "description": "✅ الوضع المالي مستقر - استمر في المراقبة المنتظمة للمؤشرات المالية",
+                    "impact": "منخفض"
+                },
+                {
+                    "type": "continuous_improvement",
+                    "priority": "low",
+                    "description": "📊 قم بمراجعة دورية للنسب المالية وقارنها مع معايير الصناعة",
+                    "impact": "منخفض"
+                }
+            ]
+        
+        return recommendations[:5]  # Return top 5 recommendations
+        
+    except Exception as e:
+        frappe.log_error(f"AI Recommendations Error: {str(e)}", "Material Ledger API")
+        return [{
+            "type": "error",
+            "priority": "low",
+            "description": "خطأ في تحميل التوصيات - يرجى المحاولة مرة أخرى",
+            "impact": "منخفض"
+        }]
+
+
+@frappe.whitelist()
+@rate_limited()
+@audit_logged("view", "risk_alerts")
+def get_risk_alerts(company):
+    """
+    Get financial risk alerts for AI dashboard
+    
+    Args:
+        company: Company name
+        
+    Returns:
+        list: List of risk alerts
+    """
+    try:
+        validator = InputValidator()
+        validator.validate_company(company)
+        
+        year = frappe.utils.nowdate().split('-')[0]
+        data = get_financial_analysis(company, year, sections=["ratios"])
+        
+        alerts = []
+        
+        if not data or 'ratios' not in data:
+            return [{
+                "type": "data_insufficient",
+                "severity": "medium",
+                "description": "بيانات مالية غير كافية - قد يؤثر على دقة تقييم المخاطر"
+            }]
+        
+        ratios = data['ratios']
+        
+        # Liquidity risks
+        current_ratio = ratios.get('current_ratio', 0)
+        if current_ratio < 1:
+            alerts.append({
+                "type": "liquidity_crisis",
+                "severity": "high",
+                "description": f"خطر سيولة عالي - نسبة السيولة الجارية {current_ratio:.2f} أقل من 1"
+            })
+        elif current_ratio < 1.5:
+            alerts.append({
+                "type": "liquidity_concern",
+                "severity": "medium", 
+                "description": f"تحذير سيولة - نسبة السيولة الجارية {current_ratio:.2f} منخفضة"
+            })
+        
+        # Profitability risks  
+        roe = ratios.get('roe', 0)
+        if roe < 0:
+            alerts.append({
+                "type": "negative_returns",
+                "severity": "high",
+                "description": f"عوائد سالبة - العائد على حقوق الملكية {roe:.2f}% سالب"
+            })
+        elif roe < 5:
+            alerts.append({
+                "type": "low_profitability",
+                "severity": "medium",
+                "description": f"ربحية منخفضة - العائد على حقوق الملكية {roe:.2f}% أقل من المتوقع"
+            })
+        
+        # Leverage risks
+        debt_ratio = ratios.get('debt_ratio', 0)
+        if debt_ratio > 80:
+            alerts.append({
+                "type": "excessive_leverage",
+                "severity": "high",
+                "description": f"رافعة مالية مفرطة - نسبة الديون {debt_ratio:.1f}% عالية جداً"
+            })
+        elif debt_ratio > 60:
+            alerts.append({
+                "type": "high_leverage",
+                "severity": "medium",
+                "description": f"رافعة مالية عالية - نسبة الديون {debt_ratio:.1f}% تحتاج مراقبة"
+            })
+        
+        # Z-Score bankruptcy risk
+        z_score = ratios.get('z_score', 0)
+        if z_score < 1.8:
+            alerts.append({
+                "type": "bankruptcy_risk",
+                "severity": "high",
+                "description": f"خطر إفلاس - درجة Z {z_score:.2f} تشير لخطر مالي عالي"
+            })
+        elif z_score < 2.99:
+            alerts.append({
+                "type": "financial_distress",
+                "severity": "medium",
+                "description": f"ضائقة مالية محتملة - درجة Z {z_score:.2f} في المنطقة الرمادية"
+            })
+        
+        # Growth risks
+        income_growth = ratios.get('income_growth', 0)
+        if income_growth < -20:
+            alerts.append({
+                "type": "revenue_decline",
+                "severity": "high",
+                "description": f"تراجع حاد في الإيرادات - انخفاض {abs(income_growth):.1f}%"
+            })
+        elif income_growth < -10:
+            alerts.append({
+                "type": "negative_growth",
+                "severity": "medium",
+                "description": f"نمو سالب - تراجع في الإيرادات بنسبة {abs(income_growth):.1f}%"
+            })
+        
+        # Check for unusual patterns in recent transactions
+        try:
+            recent_anomalies = check_recent_financial_anomalies(company)
+            if recent_anomalies:
+                alerts.extend(recent_anomalies)
+        except Exception:
+            pass
+        
+        # If no alerts, provide a positive message
+        if not alerts:
+            alerts = [{
+                "type": "no_major_risks",
+                "severity": "low", 
+                "description": "✅ لا توجد مخاطر مالية كبيرة مكتشفة حالياً"
+            }]
+        
+        return alerts[:5]  # Return top 5 alerts
+        
+    except Exception as e:
+        frappe.log_error(f"Risk Alerts Error: {str(e)}", "Material Ledger API")
+        return [{
+            "type": "error",
+            "severity": "low",
+            "description": "خطأ في تحميل تنبيهات المخاطر"
+        }]
+
+
+def check_recent_financial_anomalies(company):
+    """Check for recent financial anomalies"""
+    alerts = []
+    
+    try:
+        # Check for unusual large transactions in last 30 days
+        from frappe.utils import add_days
+        
+        recent_date = add_days(frappe.utils.nowdate(), -30)
+        
+        large_transactions = frappe.db.sql("""
+            SELECT COUNT(*) as count, SUM(ABS(debit - credit)) as total_amount
+            FROM `tabGL Entry` 
+            WHERE company = %s 
+            AND posting_date >= %s
+            AND ABS(debit - credit) > (
+                SELECT AVG(ABS(debit - credit)) * 3 
+                FROM `tabGL Entry` 
+                WHERE company = %s AND posting_date >= %s
+            )
+        """, (company, recent_date, company, recent_date), as_dict=True)
+        
+        if large_transactions and large_transactions[0].count > 5:
+            alerts.append({
+                "type": "unusual_transactions",
+                "severity": "medium",
+                "description": f"معاملات غير عادية - {large_transactions[0].count} معاملـة كبيرة في آخر 30 يوماً"
+            })
+    
+    except Exception:
+        pass
+    
+    return alerts
+
+
+@frappe.whitelist()
+@rate_limited()
+@audit_logged("action", "ai_chat")
+def chat_with_ai_assistant(message, company, chat_history=None):
+    """
+    Chat with AI financial assistant
+    
+    Args:
+        message: User message
+        company: Company context
+        chat_history: Previous chat history
+        
+    Returns:
+        dict: AI response
+    """
+    try:
+        if not message or not message.strip():
+            return {"response": "أرجو كتابة سؤال أو طلب واضح"}
+        
+        # Validate inputs
+        validator = InputValidator()
+        validator.validate_company(company)
+        
+        # Get AI service
+        ai_service = get_ai_service()
+        if not ai_service.is_available():
+            return {"response": "عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى المحاولة لاحقاً."}
+        
+        # Get company context
+        year = frappe.utils.nowdate().split('-')[0]
+        try:
+            financial_data = get_financial_analysis(company, year, sections=["ratios"])
+        except:
+            financial_data = None
+        
+        # Build context-aware prompt
+        prompt = build_assistant_prompt(message, company, financial_data, chat_history)
+        
+        # Get AI response
+        try:
+            if hasattr(ai_service, '_call_deepseek'):
+                ai_response = ai_service._call_deepseek(prompt)
+            else:
+                ai_response = "عذراً، لم أتمكن من معالجة طلبك حالياً."
+            
+            # Clean and format response
+            clean_response = clean_ai_response(ai_response, message)
+            
+            return {"response": clean_response}
+            
+        except Exception as ai_error:
+            frappe.log_error(f"AI Assistant Error: {str(ai_error)}", "Material Ledger API")
+            return {"response": "عذراً، واجهت مشكلة في فهم طلبك. يرجى إعادة صياغة السؤال أو المحاولة مرة أخرى."}
+        
+    except Exception as e:
+        frappe.log_error(f"AI Assistant Chat Error: {str(e)}", "Material Ledger API")
+        return {"response": "عذراً، حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."}
+
+
+def build_assistant_prompt(message, company, financial_data, chat_history):
+    """Build context-aware prompt for AI assistant"""
+    
+    # Company context
+    context = f"""أنت مساعد مالي ذكي متخصص في التحليل المالي. تتحدث مع مستخدم من شركة "{company}".
+
+📊 **بيانات الشركة المتاحة:**"""
+    
+    if financial_data and 'ratios' in financial_data:
+        ratios = financial_data['ratios']
+        context += f"""
+- العائد على حقوق الملكية: {ratios.get('roe', 0):.2f}%
+- العائد على الأصول: {ratios.get('roa', 0):.2f}% 
+- نسبة السيولة الجارية: {ratios.get('current_ratio', 0):.2f}
+- نسبة الديون: {ratios.get('debt_ratio', 0):.2f}%
+- معدل دوران الأصول: {ratios.get('asset_turnover', 0):.2f}
+- نمو الإيرادات: {ratios.get('income_growth', 0):.2f}%"""
+    else:
+        context += "\n- البيانات المالية محدودة أو غير متاحة"
+    
+    # Chat history context
+    if chat_history and len(chat_history) > 0:
+        context += f"\n\n💬 **آخر محادثة:**\n"
+        for chat in chat_history[-3:]:  # Last 3 exchanges
+            context += f"المستخدم: {chat.get('user', '')}\n"
+            context += f"المساعد: {chat.get('assistant', '')}\n"
+    
+    # Instructions
+    context += f"""
+
+🎯 **تعليماتك:**
+1. أجب على سؤال المستخدم بناء على البيانات المتاحة
+2. كن واضحاً ومفيداً وودوداً 
+3. استخدم الأرقام والبيانات المتاحة في إجابتك
+4. قدم نصائح عملية قابلة للتنفيذ
+5. إذا لم تجد بيانات كافية، اقترح كيفية الحصول عليها
+6. الإجابة باللغة العربية بشكل احترافي
+
+❓ **سؤال المستخدم:** {message}
+
+💡 **إجابتك (200-300 كلمة):**"""
+    
+    return context
+
+
+def clean_ai_response(ai_response, original_message):
+    """Clean and format AI response"""
+    if not ai_response:
+        return "عذراً، لم أستطع فهم طلبك بوضوح. يرجى إعادة صياغة السؤال."
+    
+    # Remove any JSON formatting or code blocks
+    import re
+    ai_response = re.sub(r'```.*?```', '', ai_response, flags=re.DOTALL)
+    ai_response = re.sub(r'`[^`]*`', '', ai_response)
+    
+    # Clean up the response
+    ai_response = ai_response.strip()
+    
+    # If response is too short, make it more helpful
+    if len(ai_response) < 50:
+        ai_response += f"\n\nلمساعدتك أكثر، يمكنك سؤالي عن:\n• التحليل المالي للشركة\n• النسب المالية والمؤشرات\n• التوصيات لتحسين الأداء\n• شرح البيانات المالية"
+    
+    # Limit response length
+    if len(ai_response) > 1000:
+        ai_response = ai_response[:950] + "..."
+    
+    return ai_response

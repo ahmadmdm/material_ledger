@@ -87,6 +87,14 @@ app_include_css = "/assets/material_ledger/css/material_ledger.css"
 # before_install = "material_ledger.install.before_install"
 # after_install = "material_ledger.install.after_install"
 
+# Fixtures
+# --------
+fixtures = [
+    {"dt": "Page", "filters": [["module", "=", "Material Ledger"]]},
+    {"dt": "DocType", "filters": [["module", "=", "Material Ledger"]]},
+    {"dt": "Workspace", "filters": [["module", "=", "Material Ledger"]]}
+]
+
 # Uninstallation
 # ------------
 

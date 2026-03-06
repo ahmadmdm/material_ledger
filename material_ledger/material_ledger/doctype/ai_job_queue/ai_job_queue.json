@@ -1,0 +1,171 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:job_id",
+ "creation": "2026-03-05 10:30:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "job_id",
+  "job_type",
+  "company",
+  "user",
+  "status",
+  "progress",
+  "section_break_7",
+  "filters",
+  "cache_key",
+  "column_break_10",
+  "result",
+  "error",
+  "section_break_13",
+  "created_at",
+  "started_at",
+  "column_break_16",
+  "completed_at",
+  "expires_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "job_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job ID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Job Type",
+   "options": "financial_prediction\nanomaly_detection\ninvestment_analysis\ncomprehensive_analysis\nfull_audit",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "queued\nprocessing\ncompleted\nfailed\ncancelled",
+   "reqd": 1
+  },
+  {
+   "fieldname": "progress",
+   "fieldtype": "Int",
+   "label": "Progress (%)",
+   "default": 0
+  },
+  {
+   "fieldname": "section_break_7",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "filters",
+   "fieldtype": "Long Text",
+   "label": "Filters (JSON)"
+  },
+  {
+   "fieldname": "cache_key",
+   "fieldtype": "Data",
+   "label": "Cache Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_10",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Long Text",
+   "label": "Result (JSON)"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Long Text",
+   "label": "Error Message"
+  },
+  {
+   "fieldname": "section_break_13",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "label": "Started At"
+  },
+  {
+   "fieldname": "column_break_16",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At"
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "label": "Result Expires At"
+  }
+ ],
+ "hide_toolbar": 1,
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "modified": "2026-03-05 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Material Ledger",
+ "name": "AI Job Queue",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "read": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "created_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

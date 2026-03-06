@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:cache_key",
+ "creation": "2026-03-05 10:30:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "cache_key",
+  "job_type",
+  "company",
+  "section_break_4",
+  "result_data",
+  "column_break_6",
+  "filters_hash",
+  "section_break_8",
+  "created_at",
+  "column_break_10",
+  "expires_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "cache_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Cache Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "job_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Job Type"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "section_break_4",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "result_data",
+   "fieldtype": "Long Text",
+   "label": "Result Data (JSON)"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "filters_hash",
+   "fieldtype": "Data",
+   "label": "Filters Hash"
+  },
+  {
+   "fieldname": "section_break_8",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_10",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expires_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Expires At",
+   "reqd": 1
+  }
+ ],
+ "hide_toolbar": 1,
+ "idx": 0,
+ "in_create": 0,
+ "is_submittable": 0,
+ "modified": "2026-03-05 10:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Material Ledger",
+ "name": "AI Result Cache",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager"
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "created_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

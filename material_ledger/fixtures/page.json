@@ -1,0 +1,157 @@
+[
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": "fa fa-dashboard",
+  "modified": "2025-01-01 00:00:00",
+  "module": "Material Ledger",
+  "name": "executive-dashboard",
+  "page_name": "executive-dashboard",
+  "restrict_to_domain": "",
+  "roles": [
+   {
+    "parent": "executive-dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "System Manager"
+   },
+   {
+    "parent": "executive-dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "executive-dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts User"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "Executive Dashboard"
+ },
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2025-12-25 12:00:00",
+  "module": "Material Ledger",
+  "name": "material-ledger-report",
+  "page_name": "material-ledger-report",
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "parent": "material-ledger-report",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "System Manager"
+   },
+   {
+    "parent": "material-ledger-report",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "material-ledger-report",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts User"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "Material Ledger"
+ },
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2025-12-29 08:54:08.615662",
+  "module": "Material Ledger",
+  "name": "financial-analysis",
+  "page_name": "financial-analysis",
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "parent": "financial-analysis",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "System Manager"
+   },
+   {
+    "parent": "financial-analysis",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Administrator"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "Financial Analysis"
+ },
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2026-03-05 01:27:02.120029",
+  "module": "Material Ledger",
+  "name": "ai-dashboard",
+  "page_name": "ai-dashboard",
+  "restrict_to_domain": null,
+  "roles": [],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "AI Financial Dashboard"
+ },
+ {
+  "content": null,
+  "docstatus": 0,
+  "doctype": "Page",
+  "icon": null,
+  "modified": "2026-03-05 12:00:00",
+  "module": "Material Ledger",
+  "name": "AI Dashboard",
+  "page_name": "AI Dashboard",
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "parent": "AI Dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts Manager"
+   },
+   {
+    "parent": "AI Dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "System Manager"
+   },
+   {
+    "parent": "AI Dashboard",
+    "parentfield": "roles",
+    "parenttype": "Page",
+    "role": "Accounts User"
+   }
+  ],
+  "script": null,
+  "standard": "Yes",
+  "style": null,
+  "system_page": 0,
+  "title": "AI Financial Dashboard"
+ }
+]

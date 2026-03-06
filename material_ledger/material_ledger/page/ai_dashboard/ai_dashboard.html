@@ -1,0 +1,159 @@
+<div class="ai-dashboard-container">
+	<!-- Header Section -->
+	<div class="dashboard-header">
+		<h1 class="dashboard-title">
+			<span class="ai-icon">🤖</span>
+			<span class="title-text">لوحة التحكم الذكية</span>
+			<span class="subtitle">AI Financial Dashboard</span>
+		</h1>
+		
+		<div class="dashboard-controls">
+			<div class="company-selector">
+				<label>الشركة:</label>
+				<select class="form-control" id="company-select">
+					<option value="">اختر الشركة...</option>
+				</select>
+			</div>
+			
+			<button class="btn btn-primary" id="refresh-dashboard">
+				<i class="fa fa-refresh"></i> تحديث البيانات
+			</button>
+		</div>
+	</div>
+	
+	<!-- Quick Insights Cards -->
+	<div class="quick-insights">
+		<div class="insight-card" id="health-score-card">
+			<div class="card-header">
+				<h3>📊 درجة الصحة المالية</h3>
+			</div>
+			<div class="card-content">
+				<div class="score-circle" id="health-score">
+					<span class="score-value">--</span>
+					<span class="score-label">من 100</span>
+				</div>
+				<div class="score-description" id="health-description">
+					جاري التحليل...
+				</div>
+			</div>
+		</div>
+		
+		<div class="insight-card" id="ai-recommendations-card">
+			<div class="card-header">
+				<h3>💡 توصيات ذكية</h3>
+			</div>
+			<div class="card-content" id="ai-recommendations">
+				<div class="loading-state">⏳ جاري تحليل البيانات...</div>
+			</div>
+		</div>
+		
+		<div class="insight-card" id="risk-alerts-card">
+			<div class="card-header">
+				<h3>⚠️ تنبيهات المخاطر</h3>
+			</div>
+			<div class="card-content" id="risk-alerts">
+				<div class="loading-state">🔍 فحص المخاطر...</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- AI Services Section -->
+	<div class="ai-services-section">
+		<h2 class="section-title">🎯 الخدمات الذكية</h2>
+		
+		<div class="services-grid">
+			<!-- Financial Prediction -->
+			<div class="service-card" data-service="prediction">
+				<div class="service-icon">🔮</div>
+				<h3>التنبؤ المالي</h3>
+				<p>توقع الأداء والتدفق النقدي للأشهر القادمة</p>
+				<button class="btn btn-primary service-btn">بدء التنبؤ</button>
+				<div class="service-status" style="display: none;"></div>
+			</div>
+			
+			<!-- Anomaly Detection -->
+			<div class="service-card" data-service="anomaly">
+				<div class="service-icon">🕵️</div>
+				<h3>كشف الشذوذ</h3>
+				<p>اكتشاف المعاملات المشبوهة والأنماط غير العادية</p>
+				<button class="btn btn-warning service-btn">فحص الشذوذ</button>
+				<div class="service-status" style="display: none;"></div>
+			</div>
+			
+			<!-- Investment Analysis -->
+			<div class="service-card" data-service="investment">
+				<div class="service-icon">📈</div>
+				<h3>تحليل الاستثمار</h3>
+				<p>تقييم الفرص الاستثمارية وحساب العوائد</p>
+				<button class="btn btn-success service-btn">تحليل الاستثمار</button>
+				<div class="service-status" style="display: none;"></div>
+			</div>
+			
+			<!-- Comprehensive Analysis -->
+			<div class="service-card" data-service="comprehensive">
+				<div class="service-icon">📋</div>
+				<h3>التحليل الشامل</h3>
+				<p>تحليل مالي شامل مدعوم بالذكاء الاصطناعي</p>
+				<button class="btn btn-info service-btn">التحليل الشامل</button>
+				<div class="service-status" style="display: none;"></div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- AI Assistant Chat -->
+	<div class="ai-assistant-section">
+		<h2 class="section-title">💬 المساعد الذكي</h2>
+		
+		<div class="chat-container">
+			<div class="chat-messages" id="chat-messages">
+				<div class="assistant-message">
+					<div class="message-avatar">🤖</div>
+					<div class="message-content">
+						<p>مرحباً! أنا مساعدك المالي الذكي. يمكنني مساعدتك في:</p>
+						<ul>
+							<li>تحليل البيانات المالية</li>
+							<li>الإجابة على الاستفسارات المحاسبية</li>
+							<li>تقديم التوصيات والنصائح</li>
+							<li>شرح التقارير والنسب المالية</li>
+						</ul>
+						<p>اسأل عن أي شيء تريد معرفته!</p>
+					</div>
+				</div>
+			</div>
+			
+			<div class="chat-input-container">
+				<input type="text" class="form-control chat-input" id="chat-input" 
+					   placeholder="اكتب سؤالك هنا... مثال: ما هو أداء الشركة هذا الربع؟">
+				<button class="btn btn-primary chat-send" id="chat-send">
+					<i class="fa fa-paper-plane"></i>
+				</button>
+			</div>
+			
+			<div class="quick-questions">
+				<h4>أسئلة سريعة:</h4>
+				<div class="question-chips">
+					<span class="question-chip" data-question="ما هو صافي الربح هذا الشهر؟">💰 الربح الشهري</span>
+					<span class="question-chip" data-question="كيف أداء المبيعات مقارنة بالعام الماضي؟">📊 أداء المبيعات</span>
+					<span class="question-chip" data-question="ما هي أهم المخاطر المالية؟">⚠️ المخاطر</span>
+					<span class="question-chip" data-question="أين يمكنني تقليل التكاليف؟">💸 تقليل التكاليف</span>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- Results Section -->
+	<div class="results-section" style="display: none;">
+		<h2 class="section-title">📊 نتائج التحليل</h2>
+		<div class="results-container" id="results-container">
+			<!-- Results will be loaded here -->
+		</div>
+	</div>
+	
+	<!-- Background Jobs Monitor -->
+	<div class="jobs-monitor" id="jobs-monitor" style="display: none;">
+		<h3>⏳ المهام قيد التنفيذ</h3>
+		<div class="jobs-list" id="jobs-list">
+			<!-- Active jobs will be shown here -->
+		</div>
+	</div>
+</div>
