@@ -8,7 +8,7 @@
  "hide_custom": 0,
  "icon": "stock",
  "idx": 0,
- "is_hidden": 0,
+ "is_hidden": 1,
  "label": "Material Ledger",
  "links": [
   {
@@ -63,7 +63,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-03-05 01:55:14.035122",
+ "modified": "2026-03-16 02:20:12.300651",
  "modified_by": "Administrator",
  "module": "Material Ledger",
  "name": "Material Ledger",
